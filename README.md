@@ -7,5 +7,7 @@ TRC3600 Group N code repository
 3. MSP Folder including code
 
 # Links
-https://www.raspberrypi.org/
-https://beagleboard.org/black
+1. https://www.raspberrypi.org/
+2. https://www.raspbian.org/
+3. https://beagleboard.org/black
+4. http://www.ti.com/tool/msp-exp430g2
