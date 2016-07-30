@@ -9,46 +9,54 @@ int file_i2c;
 int length;
 unsigned char buffer[60] = {0};
 
-int main(){
+int open_bus(){ //---------OPEN I2C BUS------------
+		char *filename = (char*)"/dev/i2c-1";
+		if((file_i2c = open(filename, O_RDWR)) < 0){
+			std::cout << "Failed to open the i2c bus." << std::endl;
+			return 0;
+		}
+}
 
-	//--------OPEN i2C BUS---------
-	char *filename = (char*)"/dev/i2c-1";
-	if((file_i2c = open(filename, O_RDWR)) < 0){
-		// ERROR HANDLING: you can check errno to see what went wrong
-		std::cout << "Failed to open the i2c bus." << std::endl;
-		return 0;
-	}
-
-	int addr = 0x77; // <<<<<<< I2C address of the slave device
+int set_address(int addr){ //----------SETS I2C SLAVE ADDRESS --------------
 	if(ioctl(file_i2c, I2C_SLAVE, addr) < 0){
 		std::cout << "Failed to acquire bus access and/or talk to the slave." << std::endl;
-		// ERROR HANDLING: you can check errno to see what went wrong
 		return 0;
 	}
+}
+
+int write_i2c(unsigned char write_buf, int length){
+	if(write(file_i2c, write_buf, length) != length){
+		std::cout << "Failed to write to the i2c bus." << std::endl;
+		return 0;
+	}
+}
+
+int read_i2c(unsigned char read_buf, int length){
+	if(read(file_i2c, read_buf, length) != length){
+		std::cout << "Failed to read from the i2c bus." << std::endl;
+		return 0;
+	}
+}
+
+int main(){
+
+	open_bus(); // open i2c bus communication
+	set_address(0x77); // <<<<< Sets I2C slave address
 
 	//-------WRITE BYTES------------
 	buffer[0] = 0xF4;
 	buffer[1] = 0xB5;
-	length = 2; //Number of bytes to write
-	if(write(file_i2c, buffer, length) != length){
-		// ERROR HANDLING: you can check errno to see what went wrong
-		std::cout << "Failed to write to the i2c bus." << std::endl;
-	}
+	write_i2c(buffer, 2);
 
 	//------WRITE BYTES AGAIN-------
 	buffer[0] = 0xF7;
-	length = 1;
-	if(write(file_i2c, buffer, length) != length){
-		std::cout << "second write fail" << std::endl;
-	}
+	write_i2c(buffer, 1);
 
 	//-------READ BYTES-------------
-	length = 6; // Number of bytes to read
-	if(read(file_i2c, buffer, length) != length){
-		// ERROR HANDLING: you can check errno to see what went wrong
-		std::cout << "Failed to read from the i2c bus." << std::endl;
-	}
-		for(int i=0; i<length ;i++){
+  read_i2c(buffer, 6);
+
+	// ------OUTPUT RESULTS --------
+	for(int i=0; i<length ;i++){
 		printf("Data from register %x : %x\n", (0xF7 + i), buffer[i]);
 	}
 
