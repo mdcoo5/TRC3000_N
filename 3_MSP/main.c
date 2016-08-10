@@ -22,7 +22,7 @@ void main(void) {
     P1IES |= BIT3; // Edgemode for Interrupt
     P1REN |= BIT3; // enables PU res on 1.3 
 
-    TA0CCR0 = 400-1; // 16Mhz Clk with 400 steps = 40khz PWM
+    TA0CCR0 = 640-1; // 16Mhz Clk with 640 steps = 25khz PWM
     TA0CCTL1 = OUTMOD_7; // Timer reset/set
     TA0CCR1 = 16; // initial duty cycle
     TA0CTL = TASSEL_2 + MC_1; //SMCLK, up mode
