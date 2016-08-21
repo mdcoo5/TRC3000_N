@@ -28,6 +28,6 @@ Uptime.............: ${UPTIME}
 Memory.............: `cat /proc/meminfo | grep MemFree | awk {'print $2'}`kB (Free) / `cat /proc/meminfo | grep MemT$
 Load Averages......: ${one}, ${five}, ${fifteen} (1, 5, 15 min)
 Running Processes..: `ps ax | wc -l | tr -d " "`
-IP Addresses.......: `/sbin/ifconfig eth0 | /bin/grep "inet addr" | /usr/bin/cut -d ":" -f 2 | /usr/bin/cut -d " " -$
-Free Disk Space....: `df -Pk | grep -E '^/dev/sda1' | awk '{ print $4 }' | awk -F '.' '{ print $1 }'`k on /dev/sda1
+IP Addresses.......: `/sbin/ifconfig wlan0 | /bin/grep "inet addr" | /usr/bin/cut -d ":" -f 2 | /usr/bin/cut -d " " -$
+Free Disk Space....: `df -Pk | grep -E '^/dev/root' | awk '{ print $4 }' | awk -F '.' '{ print $1 }'`k on /dev/root
 $(tput sgr0)"
