@@ -1,0 +1,14 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/pi/TRC3000_N/1_RPi/OpenCV/camera.cpp
+opencv2/highgui/highgui.hpp
+/home/pi/TRC3000_N/1_RPi/OpenCV/opencv2/highgui/highgui.hpp
+iostream
+-
+

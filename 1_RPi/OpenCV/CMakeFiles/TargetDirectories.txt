@@ -1,1 +1,1 @@
-/home/pi/TRC3000_N/1_RPi/OpenCV/CMakeFiles/first.dir
+/home/pi/TRC3000_N/1_RPi/OpenCV/CMakeFiles/camera.dir

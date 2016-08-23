@@ -53,38 +53,38 @@ CMAKE_SOURCE_DIR = /home/pi/TRC3000_N/1_RPi/OpenCV
 CMAKE_BINARY_DIR = /home/pi/TRC3000_N/1_RPi/OpenCV
 
 #=============================================================================
-# Target rules for target CMakeFiles/first.dir
+# Target rules for target CMakeFiles/camera.dir
 
 # All Build rule for target.
-CMakeFiles/first.dir/all:
-	$(MAKE) -f CMakeFiles/first.dir/build.make CMakeFiles/first.dir/depend
-	$(MAKE) -f CMakeFiles/first.dir/build.make CMakeFiles/first.dir/build
+CMakeFiles/camera.dir/all:
+	$(MAKE) -f CMakeFiles/camera.dir/build.make CMakeFiles/camera.dir/depend
+	$(MAKE) -f CMakeFiles/camera.dir/build.make CMakeFiles/camera.dir/build
 	$(CMAKE_COMMAND) -E cmake_progress_report /home/pi/TRC3000_N/1_RPi/OpenCV/CMakeFiles  1
-	@echo "Built target first"
-.PHONY : CMakeFiles/first.dir/all
+	@echo "Built target camera"
+.PHONY : CMakeFiles/camera.dir/all
 
 # Include target in all.
-all: CMakeFiles/first.dir/all
+all: CMakeFiles/camera.dir/all
 .PHONY : all
 
 # Build rule for subdir invocation for target.
-CMakeFiles/first.dir/rule: cmake_check_build_system
+CMakeFiles/camera.dir/rule: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/pi/TRC3000_N/1_RPi/OpenCV/CMakeFiles 1
-	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/first.dir/all
+	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/camera.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/pi/TRC3000_N/1_RPi/OpenCV/CMakeFiles 0
-.PHONY : CMakeFiles/first.dir/rule
+.PHONY : CMakeFiles/camera.dir/rule
 
 # Convenience name for target.
-first: CMakeFiles/first.dir/rule
-.PHONY : first
+camera: CMakeFiles/camera.dir/rule
+.PHONY : camera
 
 # clean rule for target.
-CMakeFiles/first.dir/clean:
-	$(MAKE) -f CMakeFiles/first.dir/build.make CMakeFiles/first.dir/clean
-.PHONY : CMakeFiles/first.dir/clean
+CMakeFiles/camera.dir/clean:
+	$(MAKE) -f CMakeFiles/camera.dir/build.make CMakeFiles/camera.dir/clean
+.PHONY : CMakeFiles/camera.dir/clean
 
 # clean rule for target.
-clean: CMakeFiles/first.dir/clean
+clean: CMakeFiles/camera.dir/clean
 .PHONY : clean
 
 #=============================================================================

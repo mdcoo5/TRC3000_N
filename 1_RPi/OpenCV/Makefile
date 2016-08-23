@@ -103,41 +103,41 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named first
+# Target rules for targets named camera
 
 # Build rule for target.
-first: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 first
-.PHONY : first
+camera: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 camera
+.PHONY : camera
 
 # fast build rule for target.
-first/fast:
-	$(MAKE) -f CMakeFiles/first.dir/build.make CMakeFiles/first.dir/build
-.PHONY : first/fast
+camera/fast:
+	$(MAKE) -f CMakeFiles/camera.dir/build.make CMakeFiles/camera.dir/build
+.PHONY : camera/fast
 
-first.o: first.cpp.o
-.PHONY : first.o
+camera.o: camera.cpp.o
+.PHONY : camera.o
 
 # target to build an object file
-first.cpp.o:
-	$(MAKE) -f CMakeFiles/first.dir/build.make CMakeFiles/first.dir/first.cpp.o
-.PHONY : first.cpp.o
+camera.cpp.o:
+	$(MAKE) -f CMakeFiles/camera.dir/build.make CMakeFiles/camera.dir/camera.cpp.o
+.PHONY : camera.cpp.o
 
-first.i: first.cpp.i
-.PHONY : first.i
+camera.i: camera.cpp.i
+.PHONY : camera.i
 
 # target to preprocess a source file
-first.cpp.i:
-	$(MAKE) -f CMakeFiles/first.dir/build.make CMakeFiles/first.dir/first.cpp.i
-.PHONY : first.cpp.i
+camera.cpp.i:
+	$(MAKE) -f CMakeFiles/camera.dir/build.make CMakeFiles/camera.dir/camera.cpp.i
+.PHONY : camera.cpp.i
 
-first.s: first.cpp.s
-.PHONY : first.s
+camera.s: camera.cpp.s
+.PHONY : camera.s
 
 # target to generate assembly for a file
-first.cpp.s:
-	$(MAKE) -f CMakeFiles/first.dir/build.make CMakeFiles/first.dir/first.cpp.s
-.PHONY : first.cpp.s
+camera.cpp.s:
+	$(MAKE) -f CMakeFiles/camera.dir/build.make CMakeFiles/camera.dir/camera.cpp.s
+.PHONY : camera.cpp.s
 
 # Help Target
 help:
@@ -145,12 +145,12 @@ help:
 	@echo "... all (the default if no target is provided)"
 	@echo "... clean"
 	@echo "... depend"
+	@echo "... camera"
 	@echo "... edit_cache"
-	@echo "... first"
 	@echo "... rebuild_cache"
-	@echo "... first.o"
-	@echo "... first.i"
-	@echo "... first.s"
+	@echo "... camera.o"
+	@echo "... camera.i"
+	@echo "... camera.s"
 .PHONY : help
 
 
