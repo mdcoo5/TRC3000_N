@@ -10,7 +10,7 @@ int length;
 unsigned char buffer[60] = {0};
 
 int open_bus(){ //---------OPEN I2C BUS------------
-		char *filename = (char*)"/dev/i2c-2";
+		char *filename = (char*)"/dev/i2c-1";
 		if((file_i2c = open(filename, O_RDWR)) < 0){
 			std::cout << "Failed to open the i2c bus." << std::endl;
 			return 0;
@@ -25,14 +25,14 @@ int set_address(int addr){ //----------SETS I2C SLAVE ADDRESS --------------
 }
 
 int write_i2c(unsigned char* write_buf, int length){
-	if(write(file_i2c, &write_buf, length) != length){
+	if(write(file_i2c, write_buf, length) != length){
 		std::cout << "Failed to write to the i2c bus." << std::endl;
 		return 0;
 	}
 }
 
 int read_i2c(unsigned char* read_buf, int length){
-	if(read(file_i2c, &read_buf, length) != length){
+	if(read(file_i2c, read_buf, length) != length){
 		std::cout << "Failed to read from the i2c bus." << std::endl;
 		return 0;
 	}
