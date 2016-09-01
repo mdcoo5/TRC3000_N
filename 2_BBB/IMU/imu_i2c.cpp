@@ -1,38 +1,10 @@
 #include <stdio.h>
 #include <iostream>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <linux/i2c-dev.h>
+#include <math.h>
+#include "i2c_function_decs.h"
 
-int file_i2c;
-int length;
-unsigned char buffer[60] = {0};
-
-void open_bus(){ //---------OPEN I2C BUS------------
-  char *filename = (char*)"/dev/i2c-2"; //i2c-1 for RPi, i2c-2 for BBB
-		if((file_i2c = open(filename, O_RDWR)) < 0){
-			std::cout << "Failed to open the i2c bus." << std::endl;
-		}
-}
-
-void set_address(int addr){ //----------SETS I2C SLAVE ADDRESS --------------
-	if(ioctl(file_i2c, I2C_SLAVE, addr) < 0){
-		std::cout << "Failed to acquire bus access and/or talk to the slave." << std::endl;
-	}
-}
-
-void write_i2c(unsigned char* write_buf, int length){
-	if(write(file_i2c, write_buf, length) != length){
-		std::cout << "Failed to write to the i2c bus." << std::endl;
-	}
-}
-
-void read_i2c(unsigned char* read_buf, int length){
-	if(read(file_i2c, read_buf, length) != length){
-		std::cout << "Failed to read from the i2c bus." << std::endl;
-	}
-}
+float accel[3];
+float angle[2];
 
 int main(void) {
   open_bus();
@@ -46,7 +18,7 @@ int main(void) {
 
 
   while(1) {
-    // --- READ VALUES ---
+    // --- READ ACCELEROMETER VALUES ---
     buffer[0] = 0x28; //Initial read address
     write_i2c(buffer, 1);
     read_i2c(buffer, 6);
@@ -56,12 +28,46 @@ int main(void) {
       //printf("Data recieved: %x\n",buffer[j]);
     }
 
+    // --- COLLATE RECIEVED VALUES ---
     int Ax = (short)(buffer[1] << 8 | buffer[0]);
     int Ay = (short)(buffer[3] << 8 | buffer[2]);
     int Az = (short)(buffer[5] << 8 | buffer[4]);
 
-    printf("%6d %6d %8d\n", Ax, Ay, Az);
-    usleep(1000000);
+    // --- 32767 counts = 2g ---
+    accel[0] = (float)((2.0*Ax)/32767.0); //Ax
+    accel[1] = (float)((2.0*Ay)/32767.0); //Ay
+    accel[2] = (float)((2.0*Az)/32767.0); //Az
+    
+    // --- CONVERSION FOR ANGLE APPROXIMATION ---
+    angle[0] = -atan2(accel[1], sqrt(pow(-accel[2],2) + pow(-accel[0],2)));
+    angle[1] = -atan2(-accel[2], sqrt(pow(accel[1],2) + pow(-accel[0],2)));
+
+    /*
+    printf("%-7d\t%-7d\t%7d\t", Ax, Ay, Az);
+    printf("%-1.5f\t%-1.5f\t%-1.5f\t", accel[0], accel[1], accel[2]);
+    */
+
+    // --- OUTPUT VALUES ---
+    printf("Tilt: %-3.4f\tRoll: %-3.4f\n", (angle[0]*180.0)/M_PI, (angle[1]*180.0)/M_PI);
+
+    
+
+
+
+
+
+    usleep(5000);
   }
   return 1;
 } //end main
+
+float * get_accel(void) {
+  int Ax, Ay, Az;
+  unsigned char out[6];
+
+  set_address(0x6B);
+  out[0] = 0x28;
+  write_i2c(out, 1);
+  read_i2c(out, 6);
+
+  Ax = (short)(out[]
