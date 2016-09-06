@@ -14,8 +14,11 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    cap.set(CV_CAP_PROP_FRAME_WIDTH, 1024);
-    cap.set(CV_CAP_PROP_FRAME_HEIGHT, 768);
+    //double fps = cap.get(CV_CAP_PROP_FPS); // get fps of video
+    //cout << "Frames per Second: " << fps << endl;
+
+    //cap.set(CV_CAP_PROP_FRAME_WIDTH, 1024);
+    //cap.set(CV_CAP_PROP_FRAME_HEIGHT, 768);
 
     namedWindow("MyVideo",CV_WINDOW_AUTOSIZE);//create a window called "MyVideo"
 
@@ -35,8 +38,8 @@ int main(int argc, char* argv[])
 
         if (waitKey(30) == 27) //wait for 'esc' key press for 30ms. If 'esc' key is pressed, break loop
        {
-            cout << "esc key is pressed by user" << endl;
-            break;
+	    //cout << "esc key is pressed by user" << endl;
+            //break;
        }
     }
     return 0;

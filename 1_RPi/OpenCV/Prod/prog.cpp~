@@ -1,0 +1,91 @@
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
+#include <iostream>
+
+using namespace cv;
+using namespace std;
+
+int main(int argc, char* argv[])
+{
+  VideoCapture cap(0); // captures from camera 0
+  if(!cap.isOpened())
+    {
+      cout << "Cannot open the camera" << endl;
+      return -1;
+    }
+
+  namedWindow("Control", CV_WINDOW_AUTOSIZE);
+
+  // Image processing
+  int iLowH = 0;
+  int iHighH = 179;
+  
+  int iLowS = 0;
+  int iHighS = 255;
+  
+  int iLowV = 0;
+  int iHighV = 255;
+  
+  cvCreateTrackbar("LowH","Control",&iLowH,179);
+  cvCreateTrackbar("HighH","Control",&iHighH,179);
+  cvCreateTrackbar("LowS","Control",&iLowS,255);
+  cvCreateTrackbar("HighS","Control",&iHighS,255);
+  cvCreateTrackbar("LowV","Control",&iLowV,255);
+  cvCreateTrackbar("HighV","Control",&iHighV,255);
+  
+  while(true)
+    {
+      Mat imgOriginal;
+
+      bool bSuccess = cap.read(imgOriginal);
+
+      if(!bSuccess)
+	{
+	  cout << "Cannot read from camera" << endl;
+	  break;
+	}
+
+      Mat imgHSV;
+
+      cvtColor(imgOriginal, imgHSV, CV_BGR2HSV);
+
+      Mat imgThreshold;
+      Mat imgFinal;
+
+      inRange(imgHSV, Scalar(iLowH, iLowS, iLowV), Scalar(iHighH, iHighS, iHighV), imgThreshold);
+      erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+
+      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+      erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+
+      Moments oMoments = moments(imgThreshold);
+
+      double dM01 = oMoments.m01;
+      double dM10 = oMoments.m10;
+      double dArea = oMoments.m00;
+
+      cvtColor(imgThreshold, imgFinal, CV_GRAY2BGR);
+
+      if(dArea > 10000)
+	{
+	  int posX = dM10 / dArea;
+	  int posY = dM01 / dArea;
+	  circle(imgFinal, Point(posX, posY), 5, Scalar(0, 0, 255), -1, 8);
+	}
+	  
+	
+      
+      imshow("Thresholded Image",imgFinal);
+      imshow("Original", imgOriginal);
+  
+      if(waitKey(30) == 27)
+	{
+	  cout << "esc key pressed" << endl;
+	  break;
+	}
+    }
+  return 0;
+}
+
+    
