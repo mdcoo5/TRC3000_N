@@ -1,9 +1,19 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include <iostream>
+#include <fstream>
 
 using namespace cv;
 using namespace std;
+
+bool ctrl_win = 1; // 1 for control box window, 0 otherwise
+bool out_thrs = 1; // 1 outputs threshold window
+bool out_orig = 0; // 1 outputs original window
+bool output = 0;   // 1 turns on left/right output
+
+int iLowH, iHighH;
+int iLowS, iHighS;
+int iLowV, iHighV;
 
 int main(int argc, char* argv[])
 {
@@ -13,25 +23,67 @@ int main(int argc, char* argv[])
       cout << "Cannot open the camera" << endl;
       return -1;
     }
+  
+  // Initial opening of threshold value file
+  std::fstream fs;
+  fs.open("thresh_vals.txt", ios::in);
+  if(fs.is_open())
+    {
+      fs >> iLowH;
+      fs >> iHighH;
+      fs >> iLowS;
+      fs >> iHighS;
+      fs >> iLowV;
+      fs >> iHighV;
+      fs.close();
+    }
+  else cout << "cannot open file to read threshold vals" << endl;
 
-  //namedWindow("Control", CV_WINDOW_AUTOSIZE);
+  // Console output of read threshold values
+  cout << "H: " << iLowH;
+  cout << " - " << iHighH << endl;
+  cout << "S: " << iLowS;
+  cout << " - " << iHighS << endl;
+  cout << "V: " <<  iLowV;
+  cout << " - " << iHighV << endl;
 
-  // Image processing
-  int iLowH = 168;
-  int iHighH = 179;
+  cout << "TRC3000 Group N OpenCV Checkpoint 3." << endl << endl;
   
-  int iLowS = 40;
-  int iHighS = 255;
+
+  //Prompting of user for mode control
+  cout << "1 - Set threshold values" << endl;
+  cout << "2 - use existing threshold values" << endl << endl;;
+  int choice;
+  cout << "choice :";
+  cin >> choice;
+  switch(choice)
+    {
+    case 1:
+      ctrl_win = 1; out_thrs = 1; out_orig = 0; output = 0;
+      cout << "Set final Threshold values in thresh_vals.txt" << endl;
+      break;
+    case 2:
+      ctrl_win = 0; out_thrs = 1; out_orig = 0; output = 1;
+      break;
+    case 3:
+      ctrl_win = 1; out_thrs = 1; out_orig = 1; output = 1;
+      break;
+    default:
+      cout << "Wrong choice" << endl;
+      return -1;
+    }
   
-  int iLowV = 0;
-  int iHighV = 255;
+  if(ctrl_win == 1)
+    {
+      namedWindow("Control", CV_WINDOW_AUTOSIZE);
   
-  //cvCreateTrackbar("LowH","Control",&iLowH,179);
-  //cvCreateTrackbar("HighH","Control",&iHighH,179);
-  //cvCreateTrackbar("LowS","Control",&iLowS,255);
-  //cvCreateTrackbar("HighS","Control",&iHighS,255);
-  //cvCreateTrackbar("LowV","Control",&iLowV,255);
-  //cvCreateTrackbar("HighV","Control",&iHighV,255);
+      cvCreateTrackbar("LowH","Control",&iLowH,179);
+      cvCreateTrackbar("HighH","Control",&iHighH,179);
+      cvCreateTrackbar("LowS","Control",&iLowS,255);
+      cvCreateTrackbar("HighS","Control",&iHighS,255);
+      cvCreateTrackbar("LowV","Control",&iLowV,255);
+      cvCreateTrackbar("HighV","Control",&iHighV,255);
+    }
 
   int flag = 0;
   int posX, posY;
@@ -89,25 +141,26 @@ int main(int argc, char* argv[])
 
       line(imgFinal, Point(319, 0), Point(319, 479), Scalar(0, 255, 0), 2, 8);
 
-      if( posX < 319)
-	{
-	  cout << "Left" << endl;
-	}
-      else
-	{
-	  cout << "Right" << endl;
-	}
-      
-      imshow("Thresholded Image",imgFinal);
-      //imshow("Original", imgOriginal);
+
+      if(out_thrs == 1) imshow("Thresholded Image",imgFinal);
+      if(out_orig == 1) imshow("Original", imgOriginal);
+
   
       if(waitKey(30) == 27)
 	{
 	  cout << "esc key pressed" << endl;
 	  break;
 	}
+
+      if( posX < 319 && output)
+	{
+	  cout << "Left" << endl;
+	}
+      else if(output)
+	{
+	  cout << "Right" << endl;
+	}
+
     }
   return 0;
 }
-
-    
