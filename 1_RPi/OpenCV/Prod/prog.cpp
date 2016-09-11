@@ -1,6 +1,6 @@
 /*
 TRC3000 Group N OpenCV checkpoint 3 code.
-Author:
+Author: MC
 Written: 09/2106
 Purpose: To capture an image from a connected webcam and perform colour thresholding,
 noise reduction and location analysis to determine where in frame coloured object is.
