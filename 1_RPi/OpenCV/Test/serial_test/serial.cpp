@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 
 #define BAUDRATE B9600
-#define DEVICE "/dev/ttyO1"
+#define DEVICE "/dev/rfcomm0"
 #define FALSE 0
 #define TRUE 1
 

@@ -5,10 +5,10 @@
 #include <termios.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/signal.h>
+#include <signal.h>
 
-#define BAUDRATE B115200
-#define DEVICE "/dev/ttyO1"
+#define BAUDRATE B9600
+#define DEVICE "/dev/rfcomm0"
 #define FALSE 0
 #define TRUE 1
 
@@ -19,17 +19,18 @@ int wait_flag=TRUE;
 
 int main(void)
 {
-  int fd;
+  int fd, res;
   struct termios oldtio, newtio;
   struct sigaction saio;
+  unsigned char buf[255];
 
   //open modem device
-  fd = open("/dev/ttyO1", O_RDWR | O_NOCTTY | O_NDELAY );
+  fd = open(DEVICE, O_RDWR | O_NOCTTY | O_NDELAY );
   if (fd < 0) { cout << "Error opening device" << endl; return -1; }
   else cout << "Device opened successfully" << endl;
 
   saio.sa_handler = signal_handler_IO;
-  saio.sa_mask = 0;
+  sigemptyset(&saio.sa_mask);
   saio.sa_flags = 0;
   saio.sa_restorer = NULL;
   sigaction(SIGIO,&saio,NULL);
@@ -48,17 +49,16 @@ int main(void)
   tcflush(fd, TCIFLUSH);
   tcsetattr(fd, TCSANOW, &newtio);
 
-  int res = 0;
-  char buf[255];
 
   while(STOP==FALSE)
     {
       usleep(10000);
+      //printf(".\n");
       if(wait_flag==FALSE)
 	{
-	  int res = read(fd, buf, 255);
+	  res = read(fd, buf, 255);
 	  buf[res] = 0;
-	  cout << buf << res << endl;
+	  printf(":%s:%d\n", buf, res);
 	  if (res == 1) STOP=TRUE;
 	  wait_flag = TRUE;
 	}
@@ -68,4 +68,9 @@ int main(void)
   close(fd);
   return 0;
 }
-  
+
+void signal_handler_IO (int status)
+{
+  std::cout << "recieved SIGIO Signal" << std::endl;
+  wait_flag=FALSE;
+}
