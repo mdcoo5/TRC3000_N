@@ -58,7 +58,7 @@ int main(void)
 	{
 	  res = read(fd, buf, 255);
 	  buf[res] = 0;
-	  printf(":%s:%d\n", buf, res);
+	  printf("%s", buf);
 	  if (res == 1) STOP=TRUE;
 	  wait_flag = TRUE;
 	}
@@ -71,6 +71,6 @@ int main(void)
 
 void signal_handler_IO (int status)
 {
-  std::cout << "recieved SIGIO Signal" << std::endl;
+  //std::cout << "recieved SIGIO Signal" << std::endl;
   wait_flag=FALSE;
 }
