@@ -30,23 +30,19 @@ int main(void)
   newtio.c_cflag = BAUDRATE | CRTSCTS | CS8 | CLOCAL | CREAD;
   newtio.c_iflag = IGNPAR | ICRNL;
   newtio.c_oflag = 0;
-  newtio.c_lflag = ICANON;
+  newtio.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG );
 
   tcflush(fd, TCIFLUSH);
   tcsetattr(fd, TCSANOW, &newtio);
 
-  unsigned char buf[] = "Hello from a C++ code\r\n";
-  unsigned char buf2[] = "1\r\n";
-  unsigned char buf3[] = {0x7F, 0x10, 0x10};
+  unsigned char buf[] = "Hello from a C++ code\r";
+  unsigned char buf2[] = "Testing this feature ...\r";
 
   int num = 0;
-  num = write(fd,buf,sizeof(buf));
+  num = write(fd,buf,sizeof(buf)-1);
   cout << "Data Sent: " << num << " bytes" << endl;
-  num = write(fd,buf2,sizeof(buf2));
+  num = write(fd,buf2,sizeof(buf2)-1);
   cout << "Data Sent: " << num << " bytes" << endl;
-  num = write(fd,buf3,sizeof(buf3));
-  cout << "Data Sent: " << num << " bytes" << endl;
-
   tcsetattr(fd, TCSANOW, &oldtio);
   close(fd);
   return 0;
