@@ -5,24 +5,37 @@
 #include <termios.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/stat.h>
+#include <sys/signal.h>
 
-#define BAUDRATE B9600
+#define BAUDRATE B115200
 #define DEVICE "/dev/ttyO1"
 #define FALSE 0
 #define TRUE 1
 
 using namespace std;
+volatile int STOP=FALSE;
+void signal_handler_IO (int status);
+int wait_flag=TRUE;
 
 int main(void)
 {
   int fd;
   struct termios oldtio, newtio;
+  struct sigaction saio;
 
   //open modem device
-  fd = open(DEVICE, O_RDWR | O_NOCTTY | O_NDELAY );
+  fd = open("/dev/ttyO1", O_RDWR | O_NOCTTY | O_NDELAY );
   if (fd < 0) { cout << "Error opening device" << endl; return -1; }
   else cout << "Device opened successfully" << endl;
+
+  saio.sa_handler = signal_handler_IO;
+  saio.sa_mask = 0;
+  saio.sa_flags = 0;
+  saio.sa_restorer = NULL;
+  sigaction(SIGIO,&saio,NULL);
+
+  fcntl(fd, F_SETOWN, getpid());
+  fcntl(fd, F_SETFL, FASYNC);
 
   tcgetattr(fd, &oldtio); // save current serial port settings
   bzero(&newtio, sizeof(newtio)); // clear struct to recieve new settings
@@ -35,17 +48,21 @@ int main(void)
   tcflush(fd, TCIFLUSH);
   tcsetattr(fd, TCSANOW, &newtio);
 
-  unsigned char buf[] = "Hello from a C++ code\r\n";
-  unsigned char buf2[] = "1\r\n";
-  unsigned char buf3[] = {0x7F, 0x10, 0x10};
+  int res = 0;
+  char buf[255];
 
-  int num = 0;
-  num = write(fd,buf,sizeof(buf));
-  cout << "Data Sent: " << num << " bytes" << endl;
-  num = write(fd,buf2,sizeof(buf2));
-  cout << "Data Sent: " << num << " bytes" << endl;
-  num = write(fd,buf3,sizeof(buf3));
-  cout << "Data Sent: " << num << " bytes" << endl;
+  while(STOP==FALSE)
+    {
+      usleep(10000);
+      if(wait_flag==FALSE)
+	{
+	  int res = read(fd, buf, 255);
+	  buf[res] = 0;
+	  cout << buf << res << endl;
+	  if (res == 1) STOP=TRUE;
+	  wait_flag = TRUE;
+	}
+    }
 
   tcsetattr(fd, TCSANOW, &oldtio);
   close(fd);
