@@ -15,4 +15,18 @@ iostream
 -
 fstream
 -
+stdio.h
+-
+unistd.h
+-
+fcntl.h
+-
+termios.h
+-
+string.h
+-
+sys/types.h
+-
+sys/stat.h
+-
 
