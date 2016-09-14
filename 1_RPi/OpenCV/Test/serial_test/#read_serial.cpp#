@@ -52,7 +52,7 @@ int main(void)
 
   while(STOP==FALSE)
     {
-      usleep(1000);
+      usleep(10000);
       //printf(".\n");
       if(wait_flag==FALSE)
 	{
