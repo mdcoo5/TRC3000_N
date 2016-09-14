@@ -113,6 +113,9 @@ int main(int argc, char* argv[])
     case 3: //debug
       ctrl_win = 1; out_thrs = 1; out_orig = 1; output = 1;
       break;
+    case 4:
+      ctrl_win = 0; out_thrs = 0; out_orig = 0; output = 1;
+      break;
     default: //default errors out
       cout << "Wrong choice" << endl;
       return -1;
