@@ -30,7 +30,7 @@ int main(void)
   newtio.c_cflag = BAUDRATE | CRTSCTS | CS8 | CLOCAL | CREAD;
   newtio.c_iflag = IGNPAR | ICRNL;
   newtio.c_oflag = 0;
-  newtio.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG );
+  newtio.c_lflag = ICANON;
 
   tcflush(fd, TCIFLUSH);
   tcsetattr(fd, TCSANOW, &newtio);
@@ -41,6 +41,7 @@ int main(void)
   int num = 0;
   num = write(fd,buf,sizeof(buf)-1);
   cout << "Data Sent: " << num << " bytes" << endl;
+  usleep(100000);
   num = write(fd,buf2,sizeof(buf2)-1);
   cout << "Data Sent: " << num << " bytes" << endl;
   tcsetattr(fd, TCSANOW, &oldtio);
