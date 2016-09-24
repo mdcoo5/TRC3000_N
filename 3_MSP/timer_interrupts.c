@@ -28,15 +28,13 @@ int main(void) {
 		// Enable general interrupts and enter LPM0
 		__bis_SR_register(LPM0_bits + GIE);
 
-		
 		/* Interrupt servicing */
-		
 		if (ifg1){
 			P1OUT ^= (BIT0 | BIT6);
 			ifg1 = 0;
 			// TACCR0 CCIFG flag is automatically reset when TACCR0 interrupt request serviced
 		//}
-			
+	
 		//elseif (ifg2){
 			//...
 		}
