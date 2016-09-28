@@ -21,6 +21,7 @@ int wait_flag=TRUE;
 int main(void)
 {
   int fd, res;
+  int count = 1;
   struct termios oldtio,  newtio;
   struct sigaction saio;
   unsigned char buf[255];
@@ -62,7 +63,16 @@ int main(void)
 	  printf("%s", buf);
 	  if (outfile.is_open())
 	    {
-	      outfile << buf << endl;
+	      outfile << count << "\t";
+	      int j = 0;
+	      while(true)
+		{
+		  if(buf[j] == 10) break;
+		  outfile << buf[j];
+		  j++;
+		}
+	      outfile << endl;
+	      count++;
 	    }
 	  else
 	    {
@@ -75,6 +85,7 @@ int main(void)
 
   tcsetattr(fd, TCSANOW, &oldtio);
   close(fd);
+  outfile.close();
   return 0;
 }
 
