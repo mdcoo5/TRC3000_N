@@ -58,7 +58,7 @@ int main(void) {
     angle[1] = -atan2(-accel[2], sqrt(pow(accel[1],2) + pow(-accel[0],2)));
 
     // --- COMPLEMENTARY FILTER ---
-    CFangle = 0.98 * (CFangle_old + gyro_old*(DT)) + 0.02 * accel[0];
+    CFangle = (0.98 * (CFangle_old + gyro_old*(DT))) + (0.02 * ((angle[0]*180)/M_PI));
 
     // --- OUTPUT VALUES ---
     printf("Tilt: %-3.4f\tRoll: %-3.4f\t", (angle[0]*180.0)/M_PI, (angle[1]*180.0)/M_PI);
