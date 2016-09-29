@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <signal.h>
 
-#define BAUDRATE B9600
+#define BAUDRATE B115200
 #define DEVICE "/dev/ttyO1" // set device to read data from
 #define FALSE 0
 #define TRUE 1
@@ -52,9 +52,13 @@ int main(void)
   tcflush(fd, TCIFLUSH);
   tcsetattr(fd, TCSANOW, &newtio);
 
+  unsigned char out[] = {"ab"};
+
   while(STOP==FALSE)
     {
-      usleep(1000);
+      usleep(100000);
+      int num = write(fd, out, sizeof(out) -1);
+      cout << num << " bytes written" << endl;
       //printf(".\n");
       if(wait_flag==FALSE)
 	{
