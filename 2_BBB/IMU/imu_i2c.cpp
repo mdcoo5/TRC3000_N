@@ -12,9 +12,11 @@ using namespace std;
 
 float accel[3];
 float gyro[3];
+float gyro_old = 0;
 float angle[2];
-float CFangle;
-unsigned long time_old;
+float CFangle, CFangle_old = 0;
+unsigned long time_old = 0;
+unsigned long time_new = 0;
 float DT;
 
 void get_accel(void);
@@ -46,11 +48,9 @@ int main(void) {
     get_accel();
     get_gyro();
     clock_gettime(CLOCK_MONOTONIC, &time_tag);
-    if(time_tag.tv_nsec - time_old < 0)
-      {
-	DT = (float) ((1000000000 - time_old) + time_tag.tv_nsec) / (1000000000.0); 
-      }
-    else DT = (float) (time_tag.tv_nsec - time_old) / (1000000000.0);
+    time_new = time_tag.tv_nsec;
+    DT = (float) (time_new - time_old) / (1000000000.0);
+    if(DT >= 1) DT = 0.0064;
     time_old = time_tag.tv_nsec;
 
     // --- CONVERSION FOR ANGLE APPROXIMATION ---
@@ -58,7 +58,7 @@ int main(void) {
     angle[1] = -atan2(-accel[2], sqrt(pow(accel[1],2) + pow(-accel[0],2)));
 
     // --- COMPLEMENTARY FILTER ---
-    CFangle = 0.98 * (CFangle + gyro[2]*(DT)) + 0.02 * accel[0];
+    CFangle = 0.98 * (CFangle_old + gyro_old*(DT)) + 0.02 * accel[0];
 
     // --- OUTPUT VALUES ---
     printf("Tilt: %-3.4f\tRoll: %-3.4f\t", (angle[0]*180.0)/M_PI, (angle[1]*180.0)/M_PI);
@@ -77,6 +77,8 @@ int main(void) {
 	fs << CFangle << endl;
       }
     count++;
+    gyro_old = gyro[2];
+    CFangle_old = CFangle;
     usleep(1000);
   }
   fs.close();
@@ -114,7 +116,7 @@ void get_gyro(void) {
   Gy = (short)(out[3] << 8 | out[2]);
   Gz = (short)(out[5] << 8 | out[4]);
 
-  gyro[0] = (float)((2.0*Gx)/32767.0); //Gx
-  gyro[1] = (float)((2.0*Gy)/32767.0); //Gy
-  gyro[2] = (float)((2.0*Gz)/32767.0); //Gz
+  gyro[0] = (float)((245.0*Gx)/32767.0); //Gx
+  gyro[1] = (float)((245.0*Gy)/32767.0); //Gy
+  gyro[2] = (float)((245.0*Gz)/32767.0); //Gz
 }
