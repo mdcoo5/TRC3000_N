@@ -28,10 +28,12 @@ float CFangle, CFangle_old = 0;
 float pid_int =  0, pid_v = 0;
 float pid_old = 0;
 int pwm = 0;
+float pterm, dterm, iterm;
 
 /* ---- PID gain values ---- 
 --------------------------*/
-float kp = 10, ki = 0, kd = 0, kv = 0;
+//float kp = 30, ki = 0, kd = 1.25, kv = 0;
+float kp = 20, ki = 0.1, kd = 0.65, kv = 0;
 /*------------------------*/
 
 unsigned long time_old = 0;
@@ -104,7 +106,7 @@ int main(void) {
     angle[1] = -atan2(-accel[2], sqrt(pow(accel[1],2) + pow(-accel[0],2)));
 
     // --- COMPLEMENTARY FILTER ---
-    CFangle = (0.98 * (CFangle_old + gyro_old*(DT))) + (0.02 * ((angle[0]*180)/M_PI));
+    CFangle = (0.98 * (CFangle_old + gyro_old*(DT))) + (0.08 * ((angle[0]*180)/M_PI));
 
     // --- OUTPUT VALUES ---
     printf("Tilt: %-3.4f\tRoll: %-3.4f\t", (angle[0]*180.0)/M_PI, (angle[1]*180.0)/M_PI);
@@ -129,10 +131,18 @@ int main(void) {
     /* --- Data Crunching Here --- */
     // Input will be CFangle - filtered tilt angle
     // Output to be motor direction and PWM values
-    pid_int += CFangle*DT;
-    pid_v += pid_old*DT;
+    //pterm = kp*CFangle;
+    //dterm = kd*(CFangle - CFangle_old);
+    //iterm += ki*CFangle;
+
+    //pid_int += CFangle*DT;
+    //pid_v += pid_old*DT;
 
     pwm = -(kp*CFangle) - (ki*pid_int) - (kd*gyro[2]) - (kv*pid_v);
+    
+    //pwm = -(pterm + iterm + dterm);
+    if(pwm > 127) pwm = 127;
+    if (pwm < -127) pwm = -127;
     cout << "PWM value: " << pwm << endl;
 
     /* --- UART TO MSP --- */
@@ -156,7 +166,7 @@ int main(void) {
 	//msp_data[3] &= ~0x80;
       }
     //msp_data[1] = msp_data[2] + msp_data[3]; //checksum
-    msp_data[1] = 0;
+    msp_data[1] = 0; //null char to terminate char string
     
 
     res = write(msp_fs, msp_data, sizeof(msp_data) - 1);
