@@ -33,7 +33,7 @@ float pterm, dterm, iterm;
 /* ---- PID gain values ---- 
 --------------------------*/
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
-float kp = 20, ki = 0.1, kd = 0.65, kv = 0;
+float kp = 15, ki = 0, kd = 0.05, kv = 0;
 /*------------------------*/
 
 unsigned long time_old = 0;
@@ -52,7 +52,7 @@ int main(void) {
 
   int msp_fs, res;
   
-  //ofstream fs ("data.txt"); //datalogging
+  ofstream fs ("data.txt"); //datalogging
   open_bus(); // I2C Bus
 
   // open serial port
@@ -89,7 +89,7 @@ int main(void) {
   write_i2c(buffer, 2);
   printf("Gyro Control bytes written\n");
 
-  //int count = 1;
+  int count = 1;
   
   while(1) {
     // --- READ ACCELEROMETER VALUES
@@ -106,7 +106,7 @@ int main(void) {
     angle[1] = -atan2(-accel[2], sqrt(pow(accel[1],2) + pow(-accel[0],2)));
 
     // --- COMPLEMENTARY FILTER ---
-    CFangle = (0.98 * (CFangle_old + gyro_old*(DT))) + (0.08 * ((angle[0]*180)/M_PI));
+    CFangle = (0.98 * (CFangle_old + gyro_old*(DT))) + (0.02 * ((angle[0]*180)/M_PI));
 
     // --- OUTPUT VALUES ---
     printf("Tilt: %-3.4f\tRoll: %-3.4f\t", (angle[0]*180.0)/M_PI, (angle[1]*180.0)/M_PI);
@@ -115,7 +115,7 @@ int main(void) {
     printf("dt: %-2.6f\t", DT);
     printf("CF Angle: %-3.4f\n", CFangle);
 
-    /*
+    
     if(fs.is_open())
       {
 	fs << count << "\t";
@@ -126,7 +126,7 @@ int main(void) {
 	fs << CFangle << endl;
       }
     count++;
-    */
+    
 
     /* --- Data Crunching Here --- */
     // Input will be CFangle - filtered tilt angle
@@ -135,10 +135,10 @@ int main(void) {
     //dterm = kd*(CFangle - CFangle_old);
     //iterm += ki*CFangle;
 
-    //pid_int += CFangle*DT;
-    //pid_v += pid_old*DT;
+    pid_int += (CFangle)*DT; //change back to CFangle !!!!!!!!!
+    pid_v += pid_old*DT;
 
-    pwm = -(kp*CFangle) - (ki*pid_int) - (kd*gyro[2]) - (kv*pid_v);
+    pwm = -(kp*(CFangle)) - (ki*pid_int) - (kd*gyro[2]) - (kv*pid_v); //change back to CFangle !!!!!!
     
     //pwm = -(pterm + iterm + dterm);
     if(pwm > 127) pwm = 127;
