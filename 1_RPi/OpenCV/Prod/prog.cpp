@@ -21,6 +21,7 @@ read and processed by BBB.
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <math.h>
 
 #define BAUDRATE B9600
 #define DEVICE "/dev/rfcomm0"
@@ -51,6 +52,7 @@ int main(int argc, char* argv[])
       return -1;
     }
 
+  /*
   fd = open(DEVICE, O_RDWR | O_NOCTTY | O_NDELAY );
   if (fd < 0) { cout << "Error opening device" << endl; return -1; }
   else cout << "Device opened successfully" << endl;
@@ -68,7 +70,8 @@ int main(int argc, char* argv[])
 
   tcflush(fd, TCIFLUSH);
   tcsetattr(fd, TCSANOW, &newtio);
-
+  */
+  
   // Initial opening and read of threshold value file
   std::fstream fs;
   fs.open("thresh_vals.txt", ios::in);
@@ -87,6 +90,7 @@ int main(int argc, char* argv[])
   cout << "TRC3000 Group N OpenCV Checkpoint 3." << endl << endl;
 
   // Console output of read threshold values
+  cout << "Marker Threshold values: " << endl;
   cout << "H: " << iLowH;
   cout << " - " << iHighH << endl;
   cout << "S: " << iLowS;
@@ -136,21 +140,113 @@ int main(int argc, char* argv[])
   int flag = 0;
   int posX, posY;
 
+  Mat imgOriginal;
+  bool bSuccess;
+
+  // Read Image
+  bSuccess = cap.read(imgOriginal);
+
+  // Get size of image
+  int rows = imgOriginal.rows;
+  int cols = imgOriginal.cols;
+  cout << "The image is " << cols << " x " << rows << " pixels" << endl;
+
+  Mat imgHSV;
+
+  // Colour converted image
+  cvtColor(imgOriginal, imgHSV, CV_BGR2HSV);
+
+  // Binary Thresholded Image & Final image
+  Mat imgThreshold;
+  Mat imgFinal;
+  
+  cout << "Green" << endl;
+  // Processing to find GREEN cones
+  inRange( imgHSV, Scalar(0, 111, 162), Scalar(179, 255, 255), imgThreshold);
+
+  // Noise Reduction
+  erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+  dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+
+  dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+  erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+
+  // Find Contours of Image
+  vector<vector<Point> > contours;
+  vector<Vec4i> heirarchy;
+  Mat dst = Mat::zeros(imgOriginal.rows, imgOriginal.cols, CV_8UC3);
+
+  findContours( imgThreshold, contours, heirarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
+
+  cout << "processing" << endl;
+  //Location of cones
+  int cones[10][2]; // [no.][x,y]
+  
+  //iterate through top_level components
+  int idx = 0;
+  int count = 0;
+  for( ; idx >= 0; idx = heirarchy[idx][0])
+    {
+      Scalar color( rand()&255, rand()&255, rand()&255);
+      drawContours( dst, contours, idx, color, 2, 8, heirarchy);
+      Moments cMoments = moments(contours[idx]);
+      cones[idx][0] = (int)(cMoments.m10/cMoments.m00);
+      cones[idx][1] = (int)(cMoments.m01/cMoments.m00);
+      circle(dst, Point(cones[idx][0],cones[idx][1]), 3, Scalar(0, 255, 0), -1);
+      count ++;
+    }
+  cout << "contours: " << count << endl;
+  for(int k=0;k <3; k++)
+    {
+      cout << "x: " << cones[k][0] << " y: " << cones[k][1] << endl;
+    }
+  
+  cout << "Orange" << endl;
+  //Processing to find ORANGE Objects
+  inRange(imgHSV, Scalar(0, 0 , 216), Scalar(69, 255, 255), imgThreshold);
+
+  // Noise Reduction
+  erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+  dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+
+  dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+  erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+
+  // Find Contours of Image
+  //dst = Mat::zeros(imgOriginal.rows, imgOriginal.cols, CV_8UC3);
+  findContours( imgThreshold, contours, heirarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
+
+  //Location of cones
+  int objects[20][2]; // [no.][x,y]
+  
+  //iterate through top_level components
+  idx = 0;
+  count = 0;
+  for( ; idx >= 0; idx = heirarchy[idx][0])
+    {
+      Scalar color( rand()&255, rand()&255, rand()&255);
+      drawContours( dst, contours, idx, color, 2, 8, heirarchy);
+      Moments cMoments = moments(contours[idx]);
+      objects[idx][0] = (int)(cMoments.m10/cMoments.m00);
+      objects[idx][1] = (int)(cMoments.m01/cMoments.m00);
+      circle(dst, Point(objects[idx][0],objects[idx][1]), 3, Scalar(0, 255, 0), -1);
+      count ++;
+    }
+  cout << "orange contours: " << count << endl;
+  for(int k=0;k <3; k++)
+    {
+      cout << "x: " << objects[k][0] << " y: " << objects[k][1] << endl;
+    }
+  
+  namedWindow( "Contours" , 1);
+  imshow("Contours", dst);
+
+  waitKey(30);
+  
   while(true)
     {
-      // imgOriginal is img captured from camera
-      Mat imgOriginal;
-      bool bSuccess = cap.read(imgOriginal);
-
-      // Get size of image
-      if(flag == 0)
-	{
-	  int rows = imgOriginal.rows;
-	  int cols = imgOriginal.cols;
-
-	  cout << "the image is " << cols << " x " << rows << " pixels" << endl;
-	  flag = 1;
-	}
+      // imgOriginal is captured from camera
+      bSuccess = cap.read(imgOriginal);
 
       if(!bSuccess)
 	{
@@ -159,33 +255,40 @@ int main(int argc, char* argv[])
 	}
 
       // Colour converted image
-      Mat imgHSV;
-
       cvtColor(imgOriginal, imgHSV, CV_BGR2HSV);
-
-      // binary threshold image and BGR final image
-      Mat imgThreshold;
-      Mat imgFinal;
 
       // Treshold image based on values read from file
       inRange(imgHSV, Scalar(iLowH, iLowS, iLowV), Scalar(iHighH, iHighS, iHighV), imgThreshold);
 
       // Noise reduction via open/close
-      erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(3,3)));
-      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(3,3)));
+      erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
 
-      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(3,3)));
-      erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(3,3)));
+      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+      erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
 
       // Moments function to find centre of blob
       Moments oMoments = moments(imgThreshold);
 
       double dM01 = oMoments.m01;
       double dM10 = oMoments.m10;
+      double dM20 = oMoments.m20;
+      double dM02 = oMoments.m02;
+      double dM11 = oMoments.m11;
       double dArea = oMoments.m00;
 
       cvtColor(imgThreshold, imgFinal, CV_GRAY2BGR);
 
+      // Draw Green Circles at centre of Objects
+      circle(imgFinal, Point(cones[0][0], cones[0][1]), 20, Scalar(0,255,0), -1, 8);
+      circle(imgFinal, Point(cones[1][0], cones[1][1]), 20, Scalar(0,255,0), -1, 8);
+      circle(imgFinal, Point(cones[2][0], cones[2][1]), 20, Scalar(0,255,0), -1, 8);
+
+      circle(imgFinal, Point(objects[0][0], objects[0][1]), 20, Scalar(0,255,0), -1, 8);
+      circle(imgFinal, Point(objects[1][0], objects[1][1]), 20, Scalar(0,255,0), -1, 8);
+      circle(imgFinal, Point(objects[2][0], objects[2][1]), 20, Scalar(0,255,0), -1, 8);
+
+      
       if(dArea > 10000)
 	     {
 	        posX = dM10 / dArea;
@@ -195,8 +298,10 @@ int main(int argc, char* argv[])
 	          }
 
       // Draw line down centre of image to denote left/right side
-      line(imgFinal, Point(319, 0), Point(319, 479), Scalar(0, 255, 0), 2, 8);
-
+      line(imgFinal, Point(posX, posY), Point(objects[0][0], objects[0][1]), Scalar(0, 255, 0), 2, 8);
+      
+      // Tilt Calculation
+      
       if(out_thrs == 1) imshow("Thresholded Image",imgFinal);
       if(out_orig == 1) imshow("Original", imgOriginal);
 
@@ -209,16 +314,16 @@ int main(int argc, char* argv[])
 int num = 0;
       if( posX < 319 && output)
 	{
-    num = write(fd,left,sizeof(left)-1);
-    cout << "L Data Sent: " << num << " bytes" << endl;
+	  //num = write(fd,left,sizeof(left)-1);
+	  //cout << "L Data Sent: " << num << " bytes" << endl;
 	}
       else if(output)
 	{
-    num = write(fd,right,sizeof(right)-1);
-    cout << "R Data Sent: " << num << " bytes" << endl;
+	  //num = write(fd,right,sizeof(right)-1);
+	  //cout << "R Data Sent: " << num << " bytes" << endl;
 	}
     }
-    tcsetattr(fd, TCSANOW, &oldtio);
-    close(fd);
+  //tcsetattr(fd, TCSANOW, &oldtio);
+  // close(fd);
   return 0;
 }
