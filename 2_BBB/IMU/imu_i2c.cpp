@@ -17,6 +17,7 @@
 #define MSP_DEVICE "/dev/ttyO2"
 #define FALSE 0
 #define TRUE 1
+#define SMA_PERIOD 20
 
 using namespace std;
 
@@ -35,6 +36,11 @@ float pterm, dterm, iterm;
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
 float kp = 10, ki = 0, kd = 0.05, kv = 0;
 /*------------------------*/
+
+// SMA variables
+float SMA_buffer[SMA_PERIOD+1];
+int SMA_buffer_startIdx = 0, SMA_buffer_endIdx = 0, sampleCount = SMA_PERIOD+1;
+float SMA_sum = 0, gyro_z_SMA;
 
 unsigned long time_old = 0;
 unsigned long time_new = 0;
@@ -90,6 +96,7 @@ int main(void) {
   printf("Gyro Control bytes written\n");
 
   int count = 1;
+  static int n = SMA_PERIOD + 1;
   
   while(1) {
     // --- READ ACCELEROMETER VALUES
@@ -108,12 +115,28 @@ int main(void) {
     // --- COMPLEMENTARY FILTER ---
     CFangle = (0.98 * (CFangle_old + gyro_old*(DT))) + (0.02 * ((angle[0]*180)/M_PI));
 
+    // --- SIMPLE MOVING AVERAGE ---
+    if(sampleCount > 0) sampleCount--;
+    SMA_buffer[SMA_buffer_endIdx] = gyro[2];
+    if((SMA_buffer_startIdx <= SMA_buffer_endIdx) && SMA_buffer_endIdx != SMA_PERIOD){
+        SMA_buffer_endIdx = (SMA_buffer_endIdx+1)%n;
+    }else{
+        SMA_buffer_startIdx = (SMA_buffer_startIdx+1)%n;
+        SMA_buffer_endIdx = (SMA_buffer_endIdx+1)%n;
+    }
+
+    SMA_sum += gyro[2];
+    if(!sampleCount) SMA_sum -= SMA_buffer[SMA_buffer_startIdx];
+    gyro_z_SMA = SMA_sum / SMA_PERIOD;
+
+
     // --- OUTPUT VALUES ---
     printf("Tilt: %-3.4f\tRoll: %-3.4f\t", (angle[0]*180.0)/M_PI, (angle[1]*180.0)/M_PI);
     printf("Gyro x: %-6f\ty:%6f\tz:%6f\t", gyro[0], gyro[1], gyro[2]);
     printf("Clock value: %lu\t", time_tag.tv_nsec);
     printf("dt: %-2.6f\t", DT);
     printf("CF Angle: %-3.4f\n", CFangle);
+    printf("gyro_z_SMA: %6f\tsampleCount: %i\n", gyro_z_SMA, sampleCount);
 
     
     if(fs.is_open())
@@ -123,7 +146,8 @@ int main(void) {
 	fs << (angle[1]*180.0)/M_PI << "\t";
 	fs << gyro[0] << "\t" << gyro[1] << "\t" << gyro [2] << "\t";
 	fs << DT << "\t";
-	fs << CFangle << endl;
+	fs << CFangle << "\t";
+	fs << gyro_z_SMA << endl;
       }
     count++;
     
