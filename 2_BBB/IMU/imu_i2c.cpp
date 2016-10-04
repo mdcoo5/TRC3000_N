@@ -33,7 +33,7 @@ float pterm, dterm, iterm;
 /* ---- PID gain values ---- 
 --------------------------*/
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
-float kp = 15, ki = 0, kd = 0.05, kv = 0;
+float kp = 10, ki = 0, kd = 0.05, kv = 0;
 /*------------------------*/
 
 unsigned long time_old = 0;
