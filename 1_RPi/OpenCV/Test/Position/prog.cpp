@@ -17,7 +17,7 @@ read and processed by BBB.
 #include <stdio.h>
 #include <unistd.h>						// Function declarations
 #include <fcntl.h>						// Needed for Serial
-#include <termios.h>					// Serial control
+#include <termios.h>					        // Serial control
 #include <string.h>						// Strings
 #include <sys/types.h>
 #include <sys/stat.h>
