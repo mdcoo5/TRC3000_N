@@ -17,7 +17,9 @@
 #define MSP_DEVICE "/dev/ttyO2"
 #define FALSE 0
 #define TRUE 1
+
 #define SMA_PERIOD 20
+#define ANGLE_OFFSET -1.9
 
 using namespace std;
 
@@ -34,7 +36,7 @@ float pterm, dterm, iterm;
 /* ---- PID gain values ---- 
 --------------------------*/
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
-float kp = 10, ki = 0, kd = 0.05, kv = 0;
+float kp = 21, ki = 0.05, kd = 0.75, kv = 0.01;
 /*------------------------*/
 
 // SMA variables
@@ -162,7 +164,8 @@ int main(void) {
     pid_int += (CFangle)*DT; //change back to CFangle !!!!!!!!!
     pid_v += pid_old*DT;
 
-    pwm = -(kp*(CFangle)) - (ki*pid_int) - (kd*gyro[2]) - (kv*pid_v); //change back to CFangle !!!!!!
+    pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro_z_SMA) - (kv*pid_v); //change back to CFangle !!!!!!
+    // gyro_z_SMA for SMA'd gyro z || gyro[2] for direct gyro z 	
     
     //pwm = -(pterm + iterm + dterm);
     if(pwm > 127) pwm = 127;
