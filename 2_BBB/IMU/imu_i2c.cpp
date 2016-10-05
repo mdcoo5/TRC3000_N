@@ -18,8 +18,10 @@
 #define FALSE 0
 #define TRUE 1
 
+#define DATALOG_ON 0
+#define SMA_ON 0
 #define SMA_PERIOD 20
-#define ANGLE_OFFSET -1.9
+#define ANGLE_OFFSET -1.8
 
 using namespace std;
 
@@ -36,7 +38,7 @@ float pterm, dterm, iterm;
 /* ---- PID gain values ---- 
 --------------------------*/
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
-float kp = 21, ki = 0.05, kd = 0.75, kv = 0.01;
+float kp = 10, ki = 0.01, kd = 0.75, kv = 0.05;
 /*------------------------*/
 
 // SMA variables
@@ -60,7 +62,7 @@ int main(void) {
 
   int msp_fs, res;
   
-  ofstream fs ("data.txt"); //datalogging
+  if(DATALOG_ON) ofstream fs ("data.txt"); //datalogging
   open_bus(); // I2C Bus
 
   // open serial port
@@ -118,19 +120,20 @@ int main(void) {
     CFangle = (0.98 * (CFangle_old + gyro_old*(DT))) + (0.02 * ((angle[0]*180)/M_PI));
 
     // --- SIMPLE MOVING AVERAGE ---
-    if(sampleCount > 0) sampleCount--;
-    SMA_buffer[SMA_buffer_endIdx] = gyro[2];
-    if((SMA_buffer_startIdx <= SMA_buffer_endIdx) && SMA_buffer_endIdx != SMA_PERIOD){
-        SMA_buffer_endIdx = (SMA_buffer_endIdx+1)%n;
-    }else{
-        SMA_buffer_startIdx = (SMA_buffer_startIdx+1)%n;
-        SMA_buffer_endIdx = (SMA_buffer_endIdx+1)%n;
+    if(SMA_ON){
+        if(sampleCount > 0) sampleCount--;
+        SMA_buffer[SMA_buffer_endIdx] = gyro[2];
+        if((SMA_buffer_startIdx <= SMA_buffer_endIdx) && SMA_buffer_endIdx != SMA_PERIOD){
+            SMA_buffer_endIdx = (SMA_buffer_endIdx+1)%n;
+        }else{
+            SMA_buffer_startIdx = (SMA_buffer_startIdx+1)%n;
+            SMA_buffer_endIdx = (SMA_buffer_endIdx+1)%n;
+        }
+
+        SMA_sum += gyro[2];
+        if(!sampleCount) SMA_sum -= SMA_buffer[SMA_buffer_startIdx];
+        gyro_z_SMA = SMA_sum / SMA_PERIOD;
     }
-
-    SMA_sum += gyro[2];
-    if(!sampleCount) SMA_sum -= SMA_buffer[SMA_buffer_startIdx];
-    gyro_z_SMA = SMA_sum / SMA_PERIOD;
-
 
     // --- OUTPUT VALUES ---
     printf("Tilt: %-3.4f\tRoll: %-3.4f\t", (angle[0]*180.0)/M_PI, (angle[1]*180.0)/M_PI);
@@ -140,19 +143,20 @@ int main(void) {
     printf("CF Angle: %-3.4f\n", CFangle);
     printf("gyro_z_SMA: %6f\tsampleCount: %i\n", gyro_z_SMA, sampleCount);
 
-    
-    if(fs.is_open())
-      {
-	fs << count << "\t";
-	fs << (angle[0]*180.0)/M_PI << "\t";
-	fs << (angle[1]*180.0)/M_PI << "\t";
-	fs << gyro[0] << "\t" << gyro[1] << "\t" << gyro [2] << "\t";
-	fs << DT << "\t";
-	fs << CFangle << "\t";
-	fs << gyro_z_SMA << endl;
-      }
-    count++;
-    
+    // --- DATA LOGGING ---
+    if(DATALOG_ON){
+        if(fs.is_open())
+        {
+	    fs << count << "\t";
+	    fs << (angle[0]*180.0)/M_PI << "\t";
+	    fs << (angle[1]*180.0)/M_PI << "\t";
+	    fs << gyro[0] << "\t" << gyro[1] << "\t" << gyro [2] << "\t";
+	    fs << DT << "\t";
+	    fs << CFangle << "\t";
+	    fs << gyro_z_SMA << endl;
+        }
+   	count++;
+    }
 
     /* --- Data Crunching Here --- */
     // Input will be CFangle - filtered tilt angle
@@ -161,11 +165,16 @@ int main(void) {
     //dterm = kd*(CFangle - CFangle_old);
     //iterm += ki*CFangle;
 
-    pid_int += (CFangle)*DT; //change back to CFangle !!!!!!!!!
+    pid_int += (CFangle+ANGLE_OFFSET)*DT; //change back to CFangle !!!!!!!!!
     pid_v += pid_old*DT;
 
-    pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro_z_SMA) - (kv*pid_v); //change back to CFangle !!!!!!
-    // gyro_z_SMA for SMA'd gyro z || gyro[2] for direct gyro z 	
+    if(SMA_ON){
+        // Use gyro_z_SMA for d term
+        pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro_z_SMA) - (kv*pid_v); //change back to CFangle !!!!!!
+    }else{
+        // Use gyro[2] for d term
+	pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro_z_SMA) - (kv*pid_v);
+    } 	
     
     //pwm = -(pterm + iterm + dterm);
     if(pwm > 127) pwm = 127;
