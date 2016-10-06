@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <iostream>
 #include <math.h>
@@ -18,10 +19,11 @@
 #define FALSE 0
 #define TRUE 1
 
-#define DATALOG_ON 0
-#define SMA_ON 0
-#define SMA_PERIOD 20
-#define ANGLE_OFFSET -1.8
+//#define DATALOG_ON 1
+#define SMA_ON 1
+#define SMA_PERIOD 25
+#define ANGLE_OFFSET -3.75
+#define PWM_LIMIT 10
 
 using namespace std;
 
@@ -38,7 +40,7 @@ float pterm, dterm, iterm;
 /* ---- PID gain values ---- 
 --------------------------*/
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
-float kp = 10, ki = 0.01, kd = 0.75, kv = 0.05;
+float kp = 30, ki = 0, kd = 0.325, kv = 0.3;
 /*------------------------*/
 
 // SMA variables
@@ -61,8 +63,11 @@ int main(void) {
   struct termios oldtio, newtio;
 
   int msp_fs, res;
-  
-  if(DATALOG_ON) ofstream fs ("data.txt"); //datalogging
+ 
+  #ifdef DATALOG_ON
+  ofstream fs ("data.txt"); //datalogging
+  #endif
+
   open_bus(); // I2C Bus
 
   // open serial port
@@ -136,27 +141,29 @@ int main(void) {
     }
 
     // --- OUTPUT VALUES ---
+    /*
     printf("Tilt: %-3.4f\tRoll: %-3.4f\t", (angle[0]*180.0)/M_PI, (angle[1]*180.0)/M_PI);
     printf("Gyro x: %-6f\ty:%6f\tz:%6f\t", gyro[0], gyro[1], gyro[2]);
     printf("Clock value: %lu\t", time_tag.tv_nsec);
     printf("dt: %-2.6f\t", DT);
-    printf("CF Angle: %-3.4f\n", CFangle);
+    */
+    printf("CF Angle: %-3.4f\n", CFangle+ANGLE_OFFSET);
     printf("gyro_z_SMA: %6f\tsampleCount: %i\n", gyro_z_SMA, sampleCount);
 
     // --- DATA LOGGING ---
-    if(DATALOG_ON){
+    #ifdef DATALOG_ON
         if(fs.is_open())
         {
 	    fs << count << "\t";
 	    fs << (angle[0]*180.0)/M_PI << "\t";
-	    fs << (angle[1]*180.0)/M_PI << "\t";
+	    //fs << (angle[1]*180.0)/M_PI << "\t";
 	    fs << gyro[0] << "\t" << gyro[1] << "\t" << gyro [2] << "\t";
 	    fs << DT << "\t";
-	    fs << CFangle << "\t";
-	    fs << gyro_z_SMA << endl;
+	    fs << CFangle+ANGLE_OFFSET << "\t";
+	    fs << gyro_z_SMA << "\t";
         }
    	count++;
-    }
+    #endif
 
     /* --- Data Crunching Here --- */
     // Input will be CFangle - filtered tilt angle
@@ -168,18 +175,25 @@ int main(void) {
     pid_int += (CFangle+ANGLE_OFFSET)*DT; //change back to CFangle !!!!!!!!!
     pid_v += pid_old*DT;
 
-    if(SMA_ON){
+    if(CFangle > 0.25 || CFangle < -0.25){
+      if(SMA_ON){
         // Use gyro_z_SMA for d term
         pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro_z_SMA) - (kv*pid_v); //change back to CFangle !!!!!!
-    }else{
+      }else{
         // Use gyro[2] for d term
-	pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro_z_SMA) - (kv*pid_v);
-    } 	
+	pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro[2]) - (kv*pid_v);
+      } 	
+    }
     
     //pwm = -(pterm + iterm + dterm);
+    if(pwm >= 0) {pwm = pwm + PWM_LIMIT;} //pid_old = pwm - PWM_LIMIT; }
+    else if(pwm < 0) {pwm = pwm - PWM_LIMIT;} //pid_old = pwm + PWM_LIMIT; }
+    
     if(pwm > 127) pwm = 127;
     if (pwm < -127) pwm = -127;
-    cout << "PWM value: " << pwm << endl;
+    //if(pwm >= 0 && pwm < PWM_LIMIT) pwm = PWM_LIMIT;
+    //if(pwm < 0 && pwm > -PWM_LIMIT) pwm = -PWM_LIMIT;
+    cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro_z_SMA << endl;
 
     /* --- UART TO MSP --- */
     unsigned char msp_data[2];
@@ -189,15 +203,15 @@ int main(void) {
 
     if(pwm > 0)
       {
-	msp_data[0] = pwm; //first data byte
-	msp_data[0] |= 0x80;
+	msp_data[0] = (127 - pwm); //first data byte
+	msp_data[0] &= ~0x80;
 	//msp_data[3] = pwm; //second data byte
 	//msp_data[3] |= 0x80;
       }
     else
       {
-	msp_data[0] = -pwm;
-	msp_data[0] &= ~0x80;
+	msp_data[0] = -(127 - pwm);
+	msp_data[0] |= 0x80;
 	//msp_data[3] = -pwm;
 	//msp_data[3] &= ~0x80;
       }
@@ -211,7 +225,7 @@ int main(void) {
     gyro_old = gyro[2];
     pid_old = pwm;
     CFangle_old = CFangle;
-    usleep(1000);
+    //usleep(5000);
   }
   //fs.close();
   tcsetattr(msp_fs, TCSANOW, &oldtio);
