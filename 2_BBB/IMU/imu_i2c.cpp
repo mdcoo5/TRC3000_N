@@ -116,7 +116,7 @@ int main(void) {
     clock_gettime(CLOCK_MONOTONIC, &time_tag);
     time_new = time_tag.tv_nsec;
     DT = (float) (time_new - time_old) / (1000000000.0);
-    if(DT >= 1) DT = 0.0064;
+    if(DT >= 1) DT = 0.003;
     time_old = time_tag.tv_nsec;
 
     // --- CONVERSION FOR ANGLE APPROXIMATION ---
