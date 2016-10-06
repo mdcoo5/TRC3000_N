@@ -19,7 +19,7 @@
 #define FALSE 0
 #define TRUE 1
 
-//#define DATALOG_ON 1
+#define DATALOG_ON 1
 #define SMA_ON 1
 #define SMA_PERIOD 25
 #define ANGLE_OFFSET -3.75
@@ -36,11 +36,13 @@ float pid_int =  0, pid_v = 0;
 float pid_old = 0;
 int pwm = 0;
 float pterm, dterm, iterm;
+float CFangle_buf[3] = { 0, 0, 0};
+float CFangle_avg = 0;
 
 /* ---- PID gain values ---- 
 --------------------------*/
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
-float kp = 30, ki = 0, kd = 0.325, kv = 0.3;
+float kp = 50, ki = 0.2, kd = 0.375, kv = 0.5;
 /*------------------------*/
 
 // SMA variables
@@ -124,6 +126,13 @@ int main(void) {
     // --- COMPLEMENTARY FILTER ---
     CFangle = (0.98 * (CFangle_old + gyro_old*(DT))) + (0.02 * ((angle[0]*180)/M_PI));
 
+    CFangle_buf[2] = CFangle_buf[1];
+    CFangle_buf[1] = CFangle_buf[0];
+    CFangle_buf[0] = CFangle;
+
+    CFangle_avg = (CFangle_buf[0] + CFangle_buf[1] + CFangle_buf[2])/3.0;
+    CFangle = CFangle_avg;
+
     // --- SIMPLE MOVING AVERAGE ---
     if(SMA_ON){
         if(sampleCount > 0) sampleCount--;
@@ -156,11 +165,11 @@ int main(void) {
         {
 	    fs << count << "\t";
 	    fs << (angle[0]*180.0)/M_PI << "\t";
-	    //fs << (angle[1]*180.0)/M_PI << "\t";
+	    fs << (angle[1]*180.0)/M_PI << "\t";
 	    fs << gyro[0] << "\t" << gyro[1] << "\t" << gyro [2] << "\t";
 	    fs << DT << "\t";
 	    fs << CFangle+ANGLE_OFFSET << "\t";
-	    fs << gyro_z_SMA << "\t";
+	    fs << gyro_z_SMA << "\t\n";
         }
    	count++;
     #endif
@@ -227,7 +236,11 @@ int main(void) {
     CFangle_old = CFangle;
     //usleep(5000);
   }
-  //fs.close();
+
+  #ifdef DATALOG_ON
+  fs.close();
+  #endif
+
   tcsetattr(msp_fs, TCSANOW, &oldtio);
   close(msp_fs);
   return 1;
