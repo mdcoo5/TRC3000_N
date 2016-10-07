@@ -19,29 +19,26 @@
 #define FALSE 0
 #define TRUE 1
 
-//#define DATALOG_ON 1	// Comment out to disable data logging 
-#define ALPHA 0.99
-#define SMA_ON 0
-#define SMA_PERIOD 5
-#define ANGLE_OFFSET -3.9
-#define PWM_LIMIT 20
-#define DEADBAND_LIMIT 0.01
+#define DATALOG_ON 1
+#define SMA_ON 1
+#define SMA_PERIOD 25
+#define ANGLE_OFFSET -3.75
+#define PWM_LIMIT 10
 
 using namespace std;
 
 float accel[3];
 float gyro[3];
 float gyro_old = 0;
-float angle[2];
+float angle = 0;
 float CFangle, CFangle_old = 0;
 float pid_int =  0, pid_v = 0;
 float pid_old = 0;
 int pwm = 0;
-float pterm, dterm, iterm;
 float CFangle_buf[3] = { 0, 0, 0};
 float CFangle_avg = 0;
 
-/* ---- PID gain values ---- 
+/* ---- PID gain values ----
 --------------------------*/
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
 float kp = 50, ki = 0.2, kd = 0.375, kv = 0.5;
@@ -64,35 +61,12 @@ void get_gyro(void);
 
 int main(void) {
   struct timespec time_tag;
-  struct termios oldtio, newtio;
 
-  int msp_fs, res;
- 
   #ifdef DATALOG_ON
   ofstream fs ("data.txt"); //datalogging
   #endif
 
   open_bus(); // I2C Bus
-
-  // open serial port
-  msp_fs = open(MSP_DEVICE, O_RDWR | O_NOCTTY | O_NDELAY);
-  if (msp_fs < 0) { cout << "Error opening MSP Serial port" << endl; return -1; }
-  else cout << "MSP device opened successfully" << endl;
-
-  //Configure Serial port
-  //fcntl(msp_fs, F_SETOWN, getpid());
-  //fcntl(msp_fs, F_SETFL, FASYNC);
-  tcgetattr(msp_fs, &oldtio); // save current serial port settings
-  bzero(&newtio, sizeof(newtio)); //clear struct for new settings
-
-  newtio.c_cflag = MSP_BAUDRATE | CRTSCTS | CS8 | CLOCAL | CREAD;
-  newtio.c_iflag = IGNPAR | ICRNL;
-  newtio.c_oflag = 0;
-  newtio.c_lflag = ICANON;
-
-  // Set serial port to new settings
-  tcflush(msp_fs, TCIFLUSH);
-  tcsetattr(msp_fs, TCSANOW, &newtio);
 
   // --- WRITE ACCELEROMETER CONTROL BYTES ---
   set_address(ACCEL_ADDRESS);
@@ -104,13 +78,13 @@ int main(void) {
   // --- WRITE GYRO CONTROL BITS ---
   set_address(ACCEL_ADDRESS);
   buffer[0] = 0x11;
-  buffer[1] = 0x80;  
+  buffer[1] = 0x80;
   write_i2c(buffer, 2);
   printf("Gyro Control bytes written\n");
 
   int count = 1;
   static int n = SMA_PERIOD + 1;
-  
+
   while(1) {
     // --- READ ACCELEROMETER VALUES
     get_accel();
@@ -122,18 +96,17 @@ int main(void) {
     time_old = time_tag.tv_nsec;
 
     // --- CONVERSION FOR ANGLE APPROXIMATION ---
-    angle[0] = -atan2(accel[1], sqrt(pow(-accel[2],2) + pow(-accel[0],2)));
-    //angle[1] = -atan2(-accel[2], sqrt(pow(accel[1],2) + pow(-accel[0],2)));
+    angle = -atan2(accel[1], sqrt(pow(-accel[2],2) + pow(-accel[0],2)));
 
     // --- COMPLEMENTARY FILTER ---
-    CFangle = (ALPHA * (CFangle_old + gyro_old*(DT))) + ((1-ALPHA) * ((angle[0]*180)/M_PI));
+    CFangle = (0.98 * (CFangle_old + gyro_old*(DT))) + (0.02 * ((angle*180)/M_PI));
 
     CFangle_buf[2] = CFangle_buf[1];
     CFangle_buf[1] = CFangle_buf[0];
     CFangle_buf[0] = CFangle;
 
-    //CFangle_avg = (CFangle_buf[0] + CFangle_buf[1] + CFangle_buf[2])/3.0;
-    //CFangle = CFangle_avg;
+    CFangle_avg = (CFangle_buf[0] + CFangle_buf[1] + CFangle_buf[2])/3.0;
+    CFangle = CFangle_avg;
 
     // --- SIMPLE MOVING AVERAGE ---
     if(SMA_ON){
@@ -166,8 +139,7 @@ int main(void) {
         if(fs.is_open())
         {
 	    fs << count << "\t";
-	    fs << (angle[0]*180.0)/M_PI << "\t";
-	    //fs << (angle[1]*180.0)/M_PI << "\t";
+	    fs << (angle*180.0)/M_PI << "\t";
 	    fs << gyro[0] << "\t" << gyro[1] << "\t" << gyro [2] << "\t";
 	    fs << DT << "\t";
 	    fs << CFangle+ANGLE_OFFSET << "\t";
@@ -179,27 +151,23 @@ int main(void) {
     /* --- Data Crunching Here --- */
     // Input will be CFangle - filtered tilt angle
     // Output to be motor direction and PWM values
-    //pterm = kp*CFangle;
-    //dterm = kd*(CFangle - CFangle_old);
-    //iterm += ki*CFangle;
 
-    pid_int += (CFangle+ANGLE_OFFSET)*DT; //change back to CFangle !!!!!!!!!
+    pid_int += (CFangle+ANGLE_OFFSET)*DT;
     pid_v += pid_old*DT;
 
-    if(CFangle > DEADBAND_LIMIT || CFangle < -DEADBAND_LIMIT){
+    if(CFangle > 0.25 || CFangle < -0.25){
       if(SMA_ON){
         // Use gyro_z_SMA for d term
         pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro_z_SMA) - (kv*pid_v); //change back to CFangle !!!!!!
       }else{
         // Use gyro[2] for d term
 	pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro[2]) - (kv*pid_v);
-      } 	
+      }
     }
-    
-    //pwm = -(pterm + iterm + dterm);
+
     if(pwm >= 0) {pwm = pwm + PWM_LIMIT;} //pid_old = pwm - PWM_LIMIT; }
     else if(pwm < 0) {pwm = pwm - PWM_LIMIT;} //pid_old = pwm + PWM_LIMIT; }
-    
+
     if(pwm > 127) pwm = 127;
     if (pwm < -127) pwm = -127;
     //if(pwm >= 0 && pwm < PWM_LIMIT) pwm = PWM_LIMIT;
@@ -208,7 +176,7 @@ int main(void) {
 
     /* --- UART TO MSP --- */
     unsigned char msp_data[2];
-    
+
     //msp_data[0] = 0x7F; //start byte
     //msp_data[4] = 0x7E; //Stop Byte
 
@@ -228,12 +196,12 @@ int main(void) {
       }
     //msp_data[1] = msp_data[2] + msp_data[3]; //checksum
     msp_data[1] = 0; //null char to terminate char string
-    
+
 
     res = write(msp_fs, msp_data, sizeof(msp_data) - 1);
     cout << res << " Bytes written to MSP" << endl;
-    
-    gyro_old = gyro_z_SMA;;
+
+    gyro_old = gyro_z_SMA;
     pid_old = pwm;
     CFangle_old = CFangle;
     //usleep(5000);
