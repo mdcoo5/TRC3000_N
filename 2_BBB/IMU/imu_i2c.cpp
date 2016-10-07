@@ -20,11 +20,12 @@
 #define TRUE 1
 
 #define DATALOG_ON 1	// Comment out to disable data logging 
-#define ALPHA 0.99
-#define SMA_ON 1
-#define SMA_PERIOD 20
+#define ALPHA 0.98
+#define SMA_ON_GYRO 1
+#define SMA_ON_TILT 1
+#define SMA_PERIOD 10
 #define SMA_PERIOD_TILT 10
-#define ANGLE_OFFSET -5.5
+#define ANGLE_OFFSET -5.0
 #define PWM_LIMIT 0
 #define DEADBAND_LIMIT 0.5
 
@@ -42,13 +43,13 @@ int pwm = 0;
 /* ---- PID gain values ---- 
 --------------------------*/
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
-float kp = 30, ki = 0.1, kd = 0.5, kv = 0.1;
+float kp = 22, ki = 0, kd = 0.5, kv = 0.1;
 /*------------------------*/
 
 // SMA variables
 float SMA_buffer[SMA_PERIOD+1], SMA_buf_tilt[SMA_PERIOD_TILT+1];
 int SMA_buffer_startIdx = 0, SMA_buffer_endIdx = 0, sampleCount = SMA_PERIOD+1;
-int SMA_buf_tilt_startIdx = 0; SMA_buf_tilt_endIdx = 0, sampleCount_tilt = SMA_PERIOD_TILT+1;
+int SMA_buf_tilt_startIdx = 0, SMA_buf_tilt_endIdx = 0, sampleCount_tilt = SMA_PERIOD_TILT+1;
 float SMA_sum = 0, gyro_z_SMA, SMA_sum_tilt = 0, tilt_SMA;
 
 unsigned long time_old = 0;
@@ -109,6 +110,7 @@ int main(void) {
 
   int count = 1;
   static int n = SMA_PERIOD + 1;
+  static int m = SMA_PERIOD_TILT + 1;
   
   while(1) {
     // --- READ ACCELEROMETER VALUES
@@ -124,14 +126,14 @@ int main(void) {
     angle = -atan2(accel[1], sqrt(pow(-accel[2],2) + pow(-accel[0],2)));
     
         // --- SIMPLE MOVING AVERAGE TILT ---
-    if(SMA_ON){
+    if(SMA_ON_TILT){
         if(sampleCount_tilt > 0) sampleCount_tilt--;
         SMA_buf_tilt[SMA_buf_tilt_endIdx] = angle;
         if((SMA_buf_tilt_startIdx <= SMA_buf_tilt_endIdx) && SMA_buf_tilt_endIdx != SMA_PERIOD_TILT){
-            SMA_buf_tilt_endIdx = (SMA_buf_tilt_endIdx+1)%n;
+            SMA_buf_tilt_endIdx = (SMA_buf_tilt_endIdx+1)%m;
         }else{
-            SMA_buf_tilt_startIdx = (SMA_buf_tilt_startIdx+1)%n;
-            SMA_buf_tilt_endIdx = (SMA_buf_tilt_endIdx+1)%n;
+            SMA_buf_tilt_startIdx = (SMA_buf_tilt_startIdx+1)%m;
+            SMA_buf_tilt_endIdx = (SMA_buf_tilt_endIdx+1)%m;
         }
 
         SMA_sum_tilt += angle;
@@ -140,7 +142,7 @@ int main(void) {
     }
 
     // --- SIMPLE MOVING AVERAGE ---
-    if(SMA_ON){
+    if(SMA_ON_GYRO){
         if(sampleCount > 0) sampleCount--;
         SMA_buffer[SMA_buffer_endIdx] = gyro[2];
         if((SMA_buffer_startIdx <= SMA_buffer_endIdx) && SMA_buffer_endIdx != SMA_PERIOD){
@@ -156,7 +158,12 @@ int main(void) {
     }
     
        // --- COMPLEMENTARY FILTER ---
-    CFangle = (ALPHA * (CFangle_old + gyro_old*(DT))) + ((1-ALPHA) * ((tilt_SMA*180)/M_PI));
+    if(SMA_ON_TILT){
+      CFangle = (ALPHA * (CFangle_old + gyro_old*(DT))) + ((1-ALPHA) * ((tilt_SMA*180)/M_PI));
+    }
+    else {
+      CFangle = (ALPHA * (CFangle_old + gyro_old*(DT))) + ((1-ALPHA) * ((tilt_SMA*180)/M_PI));
+    }
 
     // --- OUTPUT VALUES ---
     /*
@@ -173,7 +180,7 @@ int main(void) {
         if(fs.is_open())
         {
 	    fs << count << "\t";
-	    fs << (angle[0]*180.0)/M_PI << "\t";
+	    fs << (angle*180.0)/M_PI << "\t";
 	    fs << gyro[0] << "\t" << gyro[1] << "\t" << gyro [2] << "\t";
 	    fs << DT << "\t";
 	    fs << CFangle+ANGLE_OFFSET << "\t";
@@ -190,7 +197,7 @@ int main(void) {
     pid_v += pid_old*DT;
 
     if(CFangle > DEADBAND_LIMIT || CFangle < -DEADBAND_LIMIT){
-      if(SMA_ON){
+      if(SMA_ON_GYRO){
         // Use gyro_z_SMA for d term
         pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro_z_SMA) - (kv*pid_v); //change back to CFangle !!!!!!
       }else{
