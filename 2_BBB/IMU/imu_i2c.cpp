@@ -19,11 +19,13 @@
 #define FALSE 0
 #define TRUE 1
 
-#define DATALOG_ON 1
-#define SMA_ON 1
-#define SMA_PERIOD 25
-#define ANGLE_OFFSET -3.75
-#define PWM_LIMIT 10
+//#define DATALOG_ON 1	// Comment out to disable data logging 
+#define ALPHA 0.99
+#define SMA_ON 0
+#define SMA_PERIOD 5
+#define ANGLE_OFFSET -3.9
+#define PWM_LIMIT 20
+#define DEADBAND_LIMIT 0.01
 
 using namespace std;
 
@@ -121,17 +123,17 @@ int main(void) {
 
     // --- CONVERSION FOR ANGLE APPROXIMATION ---
     angle[0] = -atan2(accel[1], sqrt(pow(-accel[2],2) + pow(-accel[0],2)));
-    angle[1] = -atan2(-accel[2], sqrt(pow(accel[1],2) + pow(-accel[0],2)));
+    //angle[1] = -atan2(-accel[2], sqrt(pow(accel[1],2) + pow(-accel[0],2)));
 
     // --- COMPLEMENTARY FILTER ---
-    CFangle = (0.98 * (CFangle_old + gyro_old*(DT))) + (0.02 * ((angle[0]*180)/M_PI));
+    CFangle = (ALPHA * (CFangle_old + gyro_old*(DT))) + ((1-ALPHA) * ((angle[0]*180)/M_PI));
 
     CFangle_buf[2] = CFangle_buf[1];
     CFangle_buf[1] = CFangle_buf[0];
     CFangle_buf[0] = CFangle;
 
-    CFangle_avg = (CFangle_buf[0] + CFangle_buf[1] + CFangle_buf[2])/3.0;
-    CFangle = CFangle_avg;
+    //CFangle_avg = (CFangle_buf[0] + CFangle_buf[1] + CFangle_buf[2])/3.0;
+    //CFangle = CFangle_avg;
 
     // --- SIMPLE MOVING AVERAGE ---
     if(SMA_ON){
@@ -165,7 +167,7 @@ int main(void) {
         {
 	    fs << count << "\t";
 	    fs << (angle[0]*180.0)/M_PI << "\t";
-	    fs << (angle[1]*180.0)/M_PI << "\t";
+	    //fs << (angle[1]*180.0)/M_PI << "\t";
 	    fs << gyro[0] << "\t" << gyro[1] << "\t" << gyro [2] << "\t";
 	    fs << DT << "\t";
 	    fs << CFangle+ANGLE_OFFSET << "\t";
@@ -184,7 +186,7 @@ int main(void) {
     pid_int += (CFangle+ANGLE_OFFSET)*DT; //change back to CFangle !!!!!!!!!
     pid_v += pid_old*DT;
 
-    if(CFangle > 0.25 || CFangle < -0.25){
+    if(CFangle > DEADBAND_LIMIT || CFangle < -DEADBAND_LIMIT){
       if(SMA_ON){
         // Use gyro_z_SMA for d term
         pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro_z_SMA) - (kv*pid_v); //change back to CFangle !!!!!!
@@ -231,7 +233,7 @@ int main(void) {
     res = write(msp_fs, msp_data, sizeof(msp_data) - 1);
     cout << res << " Bytes written to MSP" << endl;
     
-    gyro_old = gyro[2];
+    gyro_old = gyro_z_SMA;;
     pid_old = pwm;
     CFangle_old = CFangle;
     //usleep(5000);
