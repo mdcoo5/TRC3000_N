@@ -23,6 +23,7 @@
 #define ALPHA 0.99
 #define SMA_ON 1
 #define SMA_PERIOD 20
+#define SMA_PERIOD_TILT 10
 #define ANGLE_OFFSET -5.5
 #define PWM_LIMIT 0
 #define DEADBAND_LIMIT 0.5
@@ -32,13 +33,11 @@ using namespace std;
 float accel[3];
 float gyro[3];
 float gyro_old = 0;
-float angle[2];
+float angle;
 float CFangle, CFangle_old = 0;
 float pid_int =  0, pid_v = 0;
 float pid_old = 0;
 int pwm = 0;
-float CFangle_buf[5] = { 0, 0, 0, 0, 0};
-float CFangle_avg = 0;
 
 /* ---- PID gain values ---- 
 --------------------------*/
@@ -47,9 +46,10 @@ float kp = 30, ki = 0.1, kd = 0.5, kv = 0.1;
 /*------------------------*/
 
 // SMA variables
-float SMA_buffer[SMA_PERIOD+1];
+float SMA_buffer[SMA_PERIOD+1], SMA_buf_tilt[SMA_PERIOD_TILT+1];
 int SMA_buffer_startIdx = 0, SMA_buffer_endIdx = 0, sampleCount = SMA_PERIOD+1;
-float SMA_sum = 0, gyro_z_SMA;
+int SMA_buf_tilt_startIdx = 0; SMA_buf_tilt_endIdx = 0, sampleCount_tilt = SMA_PERIOD_TILT+1;
+float SMA_sum = 0, gyro_z_SMA, SMA_sum_tilt = 0, tilt_SMA;
 
 unsigned long time_old = 0;
 unsigned long time_new = 0;
@@ -121,20 +121,23 @@ int main(void) {
     time_old = time_tag.tv_nsec;
 
     // --- CONVERSION FOR ANGLE APPROXIMATION ---
-    angle[0] = -atan2(accel[1], sqrt(pow(-accel[2],2) + pow(-accel[0],2)));
-    //angle[1] = -atan2(-accel[2], sqrt(pow(accel[1],2) + pow(-accel[0],2)));
+    angle = -atan2(accel[1], sqrt(pow(-accel[2],2) + pow(-accel[0],2)));
+    
+        // --- SIMPLE MOVING AVERAGE TILT ---
+    if(SMA_ON){
+        if(sampleCount_tilt > 0) sampleCount_tilt--;
+        SMA_buf_tilt[SMA_buf_tilt_endIdx] = angle;
+        if((SMA_buf_tilt_startIdx <= SMA_buf_tilt_endIdx) && SMA_buf_tilt_endIdx != SMA_PERIOD_TILT){
+            SMA_buf_tilt_endIdx = (SMA_buf_tilt_endIdx+1)%n;
+        }else{
+            SMA_buf_tilt_startIdx = (SMA_buf_tilt_startIdx+1)%n;
+            SMA_buf_tilt_endIdx = (SMA_buf_tilt_endIdx+1)%n;
+        }
 
-    // --- COMPLEMENTARY FILTER ---
-    CFangle = (ALPHA * (CFangle_old + gyro_old*(DT))) + ((1-ALPHA) * ((angle[0]*180)/M_PI));
-
-    CFangle_buf[4] = CFangle_buf[3];
-    CFangle_buf[3] = CFangle_buf[2];
-    CFangle_buf[2] = CFangle_buf[1];
-    CFangle_buf[1] = CFangle_buf[0];
-    CFangle_buf[0] = CFangle;
-
-    //CFangle_avg = (CFangle_buf[0] + CFangle_buf[1] + CFangle_buf[2])/3.0;
-    //CFangle = CFangle_avg;
+        SMA_sum_tilt += angle;
+        if(!sampleCount_tilt) SMA_sum_tilt -= SMA_buf_tilt[SMA_buf_tilt_startIdx];
+        tilt_SMA = SMA_sum_tilt / SMA_PERIOD_TILT;
+    }
 
     // --- SIMPLE MOVING AVERAGE ---
     if(SMA_ON){
@@ -151,10 +154,13 @@ int main(void) {
         if(!sampleCount) SMA_sum -= SMA_buffer[SMA_buffer_startIdx];
         gyro_z_SMA = SMA_sum / SMA_PERIOD;
     }
+    
+       // --- COMPLEMENTARY FILTER ---
+    CFangle = (ALPHA * (CFangle_old + gyro_old*(DT))) + ((1-ALPHA) * ((tilt_SMA*180)/M_PI));
 
     // --- OUTPUT VALUES ---
     /*
-    printf("Tilt: %-3.4f\tRoll: %-3.4f\t", (angle[0]*180.0)/M_PI, (angle[1]*180.0)/M_PI);
+    printf("Tilt: %-3.4f\t", (angle[0]*180.0)/M_PI);
     printf("Gyro x: %-6f\ty:%6f\tz:%6f\t", gyro[0], gyro[1], gyro[2]);
     printf("Clock value: %lu\t", time_tag.tv_nsec);
     printf("dt: %-2.6f\t", DT);
@@ -168,7 +174,6 @@ int main(void) {
         {
 	    fs << count << "\t";
 	    fs << (angle[0]*180.0)/M_PI << "\t";
-	    //fs << (angle[1]*180.0)/M_PI << "\t";
 	    fs << gyro[0] << "\t" << gyro[1] << "\t" << gyro [2] << "\t";
 	    fs << DT << "\t";
 	    fs << CFangle+ANGLE_OFFSET << "\t";
@@ -180,9 +185,6 @@ int main(void) {
     /* --- Data Crunching Here --- */
     // Input will be CFangle - filtered tilt angle
     // Output to be motor direction and PWM values
-    //pterm = kp*CFangle;
-    //dterm = kd*(CFangle - CFangle_old);
-    //iterm += ki*CFangle;
 
     pid_int += (CFangle+ANGLE_OFFSET)*DT; //change back to CFangle !!!!!!!!!
     pid_v += pid_old*DT;
@@ -197,14 +199,11 @@ int main(void) {
       } 	
     }
     
-    //pwm = -(pterm + iterm + dterm);
     if(pwm >= 0) {pwm = pwm + PWM_LIMIT;} //pid_old = pwm - PWM_LIMIT; }
     else if(pwm < 0) {pwm = pwm - PWM_LIMIT;} //pid_old = pwm + PWM_LIMIT; }
     
     if(pwm > 127) pwm = 127;
     if (pwm < -127) pwm = -127;
-    //if(pwm >= 0 && pwm < PWM_LIMIT) pwm = PWM_LIMIT;
-    //if(pwm < 0 && pwm > -PWM_LIMIT) pwm = -PWM_LIMIT;
     cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro_z_SMA << " V: " << -(kv*pid_v) <<  endl;
 
     /* --- UART TO MSP --- */
@@ -237,7 +236,6 @@ int main(void) {
     gyro_old = gyro_z_SMA;;
     pid_old = pwm;
     CFangle_old = CFangle;
-    //usleep(5000);
   }
 
   #ifdef DATALOG_ON
