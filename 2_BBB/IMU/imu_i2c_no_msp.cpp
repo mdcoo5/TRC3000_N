@@ -30,12 +30,11 @@ using namespace std;
 float accel[3];
 float gyro[3];
 float gyro_old = 0;
-float angle[2];
+float angle = 0;
 float CFangle, CFangle_old = 0;
 float pid_int =  0, pid_v = 0;
 float pid_old = 0;
 int pwm = 0;
-float pterm, dterm, iterm;
 float CFangle_buf[3] = { 0, 0, 0};
 float CFangle_avg = 0;
 
@@ -62,35 +61,12 @@ void get_gyro(void);
 
 int main(void) {
   struct timespec time_tag;
-  struct termios oldtio, newtio;
-
-  int msp_fs, res;
 
   #ifdef DATALOG_ON
   ofstream fs ("data.txt"); //datalogging
   #endif
 
   open_bus(); // I2C Bus
-
-  // open serial port
-  msp_fs = open(MSP_DEVICE, O_RDWR | O_NOCTTY | O_NDELAY);
-  if (msp_fs < 0) { cout << "Error opening MSP Serial port" << endl; return -1; }
-  else cout << "MSP device opened successfully" << endl;
-
-  //Configure Serial port
-  //fcntl(msp_fs, F_SETOWN, getpid());
-  //fcntl(msp_fs, F_SETFL, FASYNC);
-  tcgetattr(msp_fs, &oldtio); // save current serial port settings
-  bzero(&newtio, sizeof(newtio)); //clear struct for new settings
-
-  newtio.c_cflag = MSP_BAUDRATE | CRTSCTS | CS8 | CLOCAL | CREAD;
-  newtio.c_iflag = IGNPAR | ICRNL;
-  newtio.c_oflag = 0;
-  newtio.c_lflag = ICANON;
-
-  // Set serial port to new settings
-  tcflush(msp_fs, TCIFLUSH);
-  tcsetattr(msp_fs, TCSANOW, &newtio);
 
   // --- WRITE ACCELEROMETER CONTROL BYTES ---
   set_address(ACCEL_ADDRESS);
@@ -120,11 +96,10 @@ int main(void) {
     time_old = time_tag.tv_nsec;
 
     // --- CONVERSION FOR ANGLE APPROXIMATION ---
-    angle[0] = -atan2(accel[1], sqrt(pow(-accel[2],2) + pow(-accel[0],2)));
-    //angle[1] = -atan2(-accel[2], sqrt(pow(accel[1],2) + pow(-accel[0],2)));
+    angle = -atan2(accel[1], sqrt(pow(-accel[2],2) + pow(-accel[0],2)));
 
     // --- COMPLEMENTARY FILTER ---
-    CFangle = (0.98 * (CFangle_old + gyro_old*(DT))) + (0.02 * ((angle[0]*180)/M_PI));
+    CFangle = (0.98 * (CFangle_old + gyro_old*(DT))) + (0.02 * ((angle*180)/M_PI));
 
     CFangle_buf[2] = CFangle_buf[1];
     CFangle_buf[1] = CFangle_buf[0];
@@ -164,8 +139,7 @@ int main(void) {
         if(fs.is_open())
         {
 	    fs << count << "\t";
-	    fs << (angle[0]*180.0)/M_PI << "\t";
-	    //fs << (angle[1]*180.0)/M_PI << "\t";
+	    fs << (angle*180.0)/M_PI << "\t";
 	    fs << gyro[0] << "\t" << gyro[1] << "\t" << gyro [2] << "\t";
 	    fs << DT << "\t";
 	    fs << CFangle+ANGLE_OFFSET << "\t";
@@ -177,11 +151,8 @@ int main(void) {
     /* --- Data Crunching Here --- */
     // Input will be CFangle - filtered tilt angle
     // Output to be motor direction and PWM values
-    //pterm = kp*CFangle;
-    //dterm = kd*(CFangle - CFangle_old);
-    //iterm += ki*CFangle;
 
-    pid_int += (CFangle+ANGLE_OFFSET)*DT; //change back to CFangle !!!!!!!!!
+    pid_int += (CFangle+ANGLE_OFFSET)*DT;
     pid_v += pid_old*DT;
 
     if(CFangle > 0.25 || CFangle < -0.25){
@@ -194,7 +165,6 @@ int main(void) {
       }
     }
 
-    //pwm = -(pterm + iterm + dterm);
     if(pwm >= 0) {pwm = pwm + PWM_LIMIT;} //pid_old = pwm - PWM_LIMIT; }
     else if(pwm < 0) {pwm = pwm - PWM_LIMIT;} //pid_old = pwm + PWM_LIMIT; }
 
