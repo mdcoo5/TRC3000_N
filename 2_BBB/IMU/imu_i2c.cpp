@@ -19,13 +19,13 @@
 #define FALSE 0
 #define TRUE 1
 
-//#define DATALOG_ON 1	// Comment out to disable data logging 
+#define DATALOG_ON 1	// Comment out to disable data logging 
 #define ALPHA 0.99
-#define SMA_ON 0
-#define SMA_PERIOD 5
-#define ANGLE_OFFSET -3.9
-#define PWM_LIMIT 20
-#define DEADBAND_LIMIT 0.01
+#define SMA_ON 1
+#define SMA_PERIOD 20
+#define ANGLE_OFFSET -5.5
+#define PWM_LIMIT 0
+#define DEADBAND_LIMIT 0.5
 
 using namespace std;
 
@@ -37,14 +37,13 @@ float CFangle, CFangle_old = 0;
 float pid_int =  0, pid_v = 0;
 float pid_old = 0;
 int pwm = 0;
-float pterm, dterm, iterm;
-float CFangle_buf[3] = { 0, 0, 0};
+float CFangle_buf[5] = { 0, 0, 0, 0, 0};
 float CFangle_avg = 0;
 
 /* ---- PID gain values ---- 
 --------------------------*/
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
-float kp = 50, ki = 0.2, kd = 0.375, kv = 0.5;
+float kp = 30, ki = 0.1, kd = 0.5, kv = 0.1;
 /*------------------------*/
 
 // SMA variables
@@ -128,6 +127,8 @@ int main(void) {
     // --- COMPLEMENTARY FILTER ---
     CFangle = (ALPHA * (CFangle_old + gyro_old*(DT))) + ((1-ALPHA) * ((angle[0]*180)/M_PI));
 
+    CFangle_buf[4] = CFangle_buf[3];
+    CFangle_buf[3] = CFangle_buf[2];
     CFangle_buf[2] = CFangle_buf[1];
     CFangle_buf[1] = CFangle_buf[0];
     CFangle_buf[0] = CFangle;
@@ -204,7 +205,7 @@ int main(void) {
     if (pwm < -127) pwm = -127;
     //if(pwm >= 0 && pwm < PWM_LIMIT) pwm = PWM_LIMIT;
     //if(pwm < 0 && pwm > -PWM_LIMIT) pwm = -PWM_LIMIT;
-    cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro_z_SMA << endl;
+    cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro_z_SMA << " V: " << -(kv*pid_v) <<  endl;
 
     /* --- UART TO MSP --- */
     unsigned char msp_data[2];
