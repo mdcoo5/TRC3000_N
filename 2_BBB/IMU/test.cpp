@@ -53,7 +53,7 @@ float kp = 0;
 float ki = 0;
 float kd = 0;
 float kv = 0;
-/* -------------------------- */'
+/* -------------------------- */
 
 /* -- FUNCTION PROTOTYPES --- */
 void get_accel(void);
@@ -119,9 +119,9 @@ int main(void){
   		if(AIdx >= ACCEL_SMA_PERIOD) AIdx = 0;
   		
   		for(int j=0; j<ACCEL_SMA_PERIOD; j++){
-  			accel_tot[0] += accel_sma_buf[0][j];
-  			accel_tot[1] += accel_sma_buf[1][j];
-  			accel_tot[2] += accel_sma_buf[2][j];
+		  accel_tot[0] += accel_sma_buf[0][j];
+		  accel_tot[1] += accel_sma_buf[1][j];
+		  accel_tot[2] += accel_sma_buf[2][j];
   		}
   		
   		accel_val[0] = (2.0*(accel_tot[0]/ACCEL_SMA_PERIOD))/32767.0;
@@ -134,7 +134,7 @@ int main(void){
   		if(GIdx >= GYRO_SMA_PERIOD) GIdx = 0;
   		
   		for(int k=0; k<GYRO_SMA_PERIOD; k++){
-			gyro_tot += gyro_sma_buf[k];
+		  gyro_tot += gyro_sma_buf[k];
   		}
   		
   		gyro_val = (245.0 *(gyro_tot/GYRO_SMA_PERIOD))/32767.0;
@@ -143,7 +143,7 @@ int main(void){
   		tilt_angle = (-atan2(accel_val[1], sqrt(pow(-accel_val[2],2) + pow(-accel_val[0],2)))*180.0)/M_PI;
 
   		/* --- CFANGLE APPROXIMATION --- */
-  		cf = (ALPHA * (cf_old + (gyro_old*DT)) + ((1.0 - ALPHA) * tilt_angle);
+  		cf = (ALPHA * (cf_old + (gyro_old*DT))) + ((1.0 - ALPHA) * tilt_angle);
   		cf = cf + ANGLE_OFFSET;
   		 		
   		/* --- PID EQUATIONS --- */
@@ -154,7 +154,7 @@ int main(void){
   		
   		/* --- DEADBAND DO NOTHING --- */
   		if(cf > DEADBAND || cf < -DEADBAND){
-  			pwm = -(pid_p + pid_i + pid_d + pid_v);
+		  pwm = -(pid_p + pid_i + pid_d + pid_v);
   		}
   		
   		/* --- PWM OFFSET --- */
@@ -168,12 +168,12 @@ int main(void){
   		unsigned char msp_data[2];
   		
   		if(pwm > 0){
-  			msp_data[0] = (127 - pwm);
-  			msp_data[0] &= ~0x80;
+		  msp_data[0] = (127 - pwm);
+		  msp_data[0] &= ~0x80;
   		}
   		else{
-  			msp_data[0] = -(127 - pwm);
-  			msp_data |= 0x80;
+		  msp_data[0] = -(127 - pwm);
+		  msp_data[0] |= 0x80;
   		}
   		
   		msp_data[1] = 0; 		// null char to terminate string
@@ -183,14 +183,14 @@ int main(void){
   		
   		/* --- DATA LOGGING --- */
   		#ifdef DATALOG_ON
-  			if(fs.is_open()){
-  				fs << datalog_count << "\t";
-  				fs << tilt_angle << "\t";
-  				fs << cf << "\t";
-  				fs << gyro_val << "\t";
-  				fs << DT << endl;
-  			}
-  			datalog_count++;
+		if(fs.is_open()){
+		  fs << datalog_count << "\t";
+		  fs << tilt_angle << "\t";
+		  fs << cf << "\t";
+		  fs << gyro_val << "\t";
+		  fs << DT << endl;
+		}
+		datalog_count++;
   		#endif
   		 		
   		/* --- UPDATE OLD VALUES --- */
@@ -198,7 +198,7 @@ int main(void){
   		cf_old = cf;
   	}
   	#ifdef DATALOG_ON
-  		close(fs);
+	fs.close();
   	#endif
   	
   	tcsetattr(msp_fs, TCSANOW, &oldtio);
