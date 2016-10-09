@@ -24,7 +24,7 @@
 #define SMA_ON 0
 #define SMA_PERIOD 5
 #define ANGLE_OFFSET 0
-#define PWM_LIMIT 10
+#define PWM_LIMIT 0
 #define DEADBAND_LIMIT 0.01
 
 using namespace std;
@@ -44,7 +44,7 @@ float CFangle_avg = 0;
 /* ---- PID gain values ----
 --------------------------*/
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
-float kp = 50, ki = 0.2, kd = 0.375, kv = 0.5;
+float kp = 15, ki = 0, kd = 0.375, kv = 0;
 /*------------------------*/
 
 // SMA variables
@@ -235,13 +235,8 @@ int main(void) {
 
     res = write(msp_fs, msp_data, sizeof(msp_data) - 1);
     cout << res << " Bytes written to MSP" << endl;
-<<<<<<< HEAD:2_BBB/IMU/imu_i2c.cpp
     
-    gyro_old = gyro_z_SMA;;
-=======
-
     gyro_old = gyro_z_SMA;
->>>>>>> c12f25ed6bd7038d2879d8df256a840cca1f8252:2_BBB/IMU/imu_i2c.cpp.back2
     pid_old = pwm;
     CFangle_old = CFangle;
     //usleep(5000);

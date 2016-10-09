@@ -21,35 +21,40 @@
 #define FALSE 0
 #define TRUE 1
 
-#define DATALOG_ON 1	// Comment out to disable data logging 
+//#define DATALOG_ON 1	// Comment out to disable data logging 
 #define ALPHA 0.98
 
 #define ACCEL_SMA_ON 1
-#define ACCEL_SMA_PERIOD 10
+#define ACCEL_SMA_PERIOD 1
 #define GYRO_SMA_ON 1
-#define GYRO_SMA_PERIOD 10
+#define GYRO_SMA_PERIOD 1
 
-#define ANGLE_OFFSET -5.5
-#define PWM_MINIMUM 0
+#define ANGLE_OFFSET 0
+#define GYRO_OFFSET 5.6
+#define PWM_MINIMUM 10
 #define DEADBAND 0.5
 
 using namespace std;
 
 /* --- GLOBALS --- */
-int accel_sma_buf[3][ACCEL_SMA_PERIOD];  	// [X, Y, Z]
-int gyro_sma_buf[GYRO_SMA_PERIOD];   	// [X, Y, Z]
-int accel[3], gyro;
-long accel_tot[3];
-long gyro_tot;
+float accel_sma_buf[3][ACCEL_SMA_PERIOD];  	// [X, Y, Z]
+float gyro_sma_buf[GYRO_SMA_PERIOD];   	        // [X, Y, Z]
+float accel[3], gyro;
+float accel_tot[3];
+float gyro_tot;
 float accel_val[3], gyro_val;
 float tilt_angle, cf;
 float gyro_old, cf_old;
 float pid_p, pid_i, pid_d, pid_v;
+float pid_i_integral, pid_v_integral;
+
+long time_new, time_old;
 float DT;
-int pwm = 0;
+int pwm = 0, pwm_old = 0;
+
 
 /* --- PID GAIN CONSTANTS --- */
-float kp = 0;
+float kp = 20;
 float ki = 0;
 float kd = 0;
 float kv = 0;
@@ -74,14 +79,25 @@ int main(void){
 	
 	/* --- ACCELEROMETER --- */
 	set_address(ACCEL_ADDRESS);
+	buffer[0] = 0x18;
+	buffer[1] = 0x38;
+	write_i2c(buffer, 2);
 	buffer[0] = 0x10;
 	buffer[1] = 0x80;
 	write_i2c(buffer, 2);
 	cout << "Accelerometer Control bytes written" << endl;
 	
 	/* --- GYRO --- */
+	buffer[0] = 0x19;
+	buffer[1] = 0x38;
+	write_i2c(buffer, 2);
 	buffer[0] = 0x11;
 	buffer[1] = 0x80;
+	write_i2c(buffer, 2);
+
+	/* --- RESET DC OFFSET IN GYRO --- */
+	buffer[0] = 0x16;
+	buffer[1] = 0x48;
 	write_i2c(buffer, 2);
 	cout << "Gyro control bytes written" << endl;
 	
@@ -110,7 +126,15 @@ int main(void){
   		/* --- I2C READS --- */
   		get_accel();
   		get_gyro();
-  		
+
+		/* --- GET TIME --- */
+		clock_gettime(CLOCK_MONOTONIC, &time_tag);
+		time_new = time_tag.tv_nsec;
+		if(time_new - time_old < 0) DT = (float)(time_new - time_old) + 1000000000;
+		else DT = (float)(time_new - time_old);
+		DT = DT / 1000000000;
+		time_old = time_new;
+				
   		/* --- MOVING BUFFERS ACCEL --- */
   		accel_sma_buf[0][AIdx] = accel[0]; //accel is an array of ints
   		accel_sma_buf[1][AIdx] = accel[1];
@@ -124,12 +148,12 @@ int main(void){
 		  accel_tot[2] += accel_sma_buf[2][j];
   		}
   		
-  		accel_val[0] = (2.0*(accel_tot[0]/ACCEL_SMA_PERIOD))/32767.0;
-  		accel_val[1] = (2.0*(accel_tot[1]/ACCEL_SMA_PERIOD))/32767.0;
-  		accel_val[2] = (2.0*(accel_tot[2]/ACCEL_SMA_PERIOD))/32767.0;
+  		accel_val[0] = (accel_tot[0]/ACCEL_SMA_PERIOD);
+		accel_val[1] = (accel_tot[1]/ACCEL_SMA_PERIOD);
+  		accel_val[2] = (accel_tot[2]/ACCEL_SMA_PERIOD);
   		
-  		/* --- MOVINF BUFFERS GYRO --- */
-  		gyro_sma_buf[GIdx] = gyro; //an int
+  		/* --- MOVING BUFFERS GYRO --- */
+  		gyro_sma_buf[GIdx] = gyro;
   		GIdx++;
   		if(GIdx >= GYRO_SMA_PERIOD) GIdx = 0;
   		
@@ -137,20 +161,22 @@ int main(void){
 		  gyro_tot += gyro_sma_buf[k];
   		}
   		
-  		gyro_val = (245.0 *(gyro_tot/GYRO_SMA_PERIOD))/32767.0;
+  		gyro_val = (gyro_tot/GYRO_SMA_PERIOD);
   		  		
   		/* -- ANGLE APPROXIMATION --- */
   		tilt_angle = (-atan2(accel_val[1], sqrt(pow(-accel_val[2],2) + pow(-accel_val[0],2)))*180.0)/M_PI;
 
   		/* --- CFANGLE APPROXIMATION --- */
-  		cf = (ALPHA * (cf_old + (gyro_old*DT))) + ((1.0 - ALPHA) * tilt_angle);
-  		cf = cf + ANGLE_OFFSET;
+  		cf = (ALPHA * (cf_old + (gyro_old*DT))) + ((1.0 - ALPHA) * tilt_angle);;
   		 		
   		/* --- PID EQUATIONS --- */
-  		pid_p = kp*cf;
-  		pid_i = 0; 				//check this equation
+		pid_i_integral += (cf)*DT;
+		pid_v_integral += pwm_old*DT;
+		
+  		pid_p = kp*(cf);
+  		pid_i = ki*pid_i_integral; 				//check this equation
   		pid_d = kd*gyro_old;
-  		pid_v = 0; 				// check this one too
+  		pid_v = kv*pid_v_integral; 				// check this one too
   		
   		/* --- DEADBAND DO NOTHING --- */
   		if(cf > DEADBAND || cf < -DEADBAND){
@@ -192,10 +218,18 @@ int main(void){
 		}
 		datalog_count++;
   		#endif
+
+		/* --- SERIAL OUTPUT --- */
+		cout << "T: " << tilt_angle << " CF: " << cf << " Gz: " << gyro_val << " DT: " << DT << " pwm: " << pwm << endl;
   		 		
   		/* --- UPDATE OLD VALUES --- */
+		pwm_old = pwm;
   		gyro_old = gyro_val;
   		cf_old = cf;
+		accel_tot[0] = 0;
+		accel_tot[1] = 0;
+		accel_tot[2] = 0;
+		gyro_tot = 0;
   	}
   	#ifdef DATALOG_ON
 	fs.close();
@@ -209,25 +243,35 @@ int main(void){
 /* --- GET ACCELEROMETER VALUES --- */
 void get_accel(void){
 	unsigned char out[6];
+	int ax, ay, az;
 	
 	set_address(ACCEL_ADDRESS);
 	out[0] = 0x28;
 	write_i2c(out, 1);
 	read_i2c(out, 6);
 	
-	accel[0] = (short)(out[1] << 8 | out[0]);
-	accel[1] = (short)(out[3] << 8 | out[2]);
-	accel[2] = (short)(out[4] << 8 | out[4]);
+	ax = (short)(out[1] << 8 | out[0]);
+	ay = (short)(out[3] << 8 | out[2]);
+	az = (short)(out[5] << 8 | out[4]);
+
+	accel[0] = (float)((2.0*ax)/32767.0);
+	accel[1] = (float)((2.0*ay)/32767.0);
+	accel[2] = (float)((2.0*az)/32767.0);
 }
 
 /* --- GET GYRO Z VALUE --- */
 void get_gyro(void){
-	unsigned char out[2];
+	unsigned char out[6];
+	int gx, gy, gz;
 	
 	set_address(ACCEL_ADDRESS);
-	out[0] = 0x26;
+	out[0] = 0x22;
 	write_i2c(out, 1);
-	read_i2c(out, 2);
-	
-	gyro = (short)(out[1] << 8 | out[0]); //only z value of gyro
+	read_i2c(out, 6);
+
+	gx = (short)(out[1] << 8 | out[0]);
+	gy = (short)(out[3] << 8 | out[2]);
+	gz = (short)(out[5] << 8 | out[4]); //only z value of gyro
+
+	gyro = (float)((245.0*gx)/32767.0);
 }

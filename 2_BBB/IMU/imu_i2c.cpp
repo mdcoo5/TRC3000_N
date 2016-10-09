@@ -19,15 +19,15 @@
 #define FALSE 0
 #define TRUE 1
 
-#define DATALOG_ON 0	// Comment out to disable data logging 
+//#define DATALOG_ON 0	// Comment out to disable data logging 
 #define ALPHA 0.98
-#define SMA_GYRO_EN 1
-#define SMA_TILT_EN 1
-#define SMA_PERIOD 5
-#define SMA_PERIOD_TILT 10
-#define ANGLE_OFFSET -2.5
-#define PWM_LIMIT 15
-#define DEADBAND_LIMIT 0.5
+#define SMA_GYRO_EN 0
+#define SMA_TILT_EN 0
+#define SMA_PERIOD 1
+#define SMA_PERIOD_TILT 1
+#define ANGLE_OFFSET -2.0
+#define PWM_LIMIT 5
+#define DEADBAND_LIMIT 0
 
 using namespace std;
 
@@ -38,12 +38,12 @@ float angle;
 float CFangle, CFangle_old = 0;
 float pid_int =  0, pid_v = 0;
 float pid_old = 0;
-int pwm = 0;
+int pwm, pwm_write;
 
 /* ---- PID gain values ---- 
 --------------------------*/
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
-float kp = 50, ki = 0, kd = 0.35, kv = 0;
+float kp = 5, ki = 0, kd = 10.0, kv = 0;
 /*------------------------*/
 
 // SMA variables
@@ -105,6 +105,9 @@ int main(void) {
   set_address(ACCEL_ADDRESS);
   buffer[0] = 0x11;
   buffer[1] = 0x80;  
+  write_i2c(buffer, 2);
+  buffer[0] = 0x16;
+  buffer[1] = 0x78;
   write_i2c(buffer, 2);
   printf("Gyro Control bytes written\n");
 
@@ -174,7 +177,7 @@ int main(void) {
     printf("dt: %-2.6f\t", DT);
     */
     printf("CF Angle: %-3.4f\n", CFangle+ANGLE_OFFSET);
-    printf("gyro_z_SMA: %6f\tsampleCount: %i\n", gyro_z_SMA, sampleCount);
+    //printf("gyro_z_SMA: %6f\tsampleCount: %i\n", gyro_z_SMA, sampleCount);
 
     // --- DATA LOGGING ---
     #ifdef DATALOG_ON
@@ -200,44 +203,44 @@ int main(void) {
     pid_v += pid_old*DT;
 
     // Update PWM value if bot is outside deadband
-    if(CFangle > DEADBAND_LIMIT || CFangle < -DEADBAND_LIMIT){
+    if((CFangle+ANGLE_OFFSET) > DEADBAND_LIMIT || (CFangle+ANGLE_OFFSET) < -DEADBAND_LIMIT){
         if(SMA_GYRO_EN){
             // Use gyro_z_SMA for d term
             pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro_z_SMA) - (kv*pid_v); //change back to CFangle !!!!!!
 
 	    // Print P, I, D
-	    cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro_z_SMA << " V: " << -(kv*pid_v) << endl;
+	    //cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro_z_SMA << " V: " << -(kv*pid_v) << endl;
         }else{
             // Use gyro[2] for d term
 	    pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro[2]) - (kv*pid_v);
 
 	    // Print P, I, D
-	    cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro[2] << " V: " << -(kv*pid_v) << endl;
+	    //cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro[2] << " V: " << -(kv*pid_v) << endl;
         } 	
     }
     
     // Adjust pwm for offset (PWM_LIMIT)
-    if(pwm >= 0) {pwm = pwm + PWM_LIMIT;}       //pid_old = pwm - PWM_LIMIT; }
-    else if(pwm < 0) {pwm = pwm - PWM_LIMIT;}   //pid_old = pwm + PWM_LIMIT; }
+    if(pwm >= 0) {pwm_write = pwm + PWM_LIMIT;}       //pid_old = pwm - PWM_LIMIT; }
+    else if(pwm < 0) {pwm_write = pwm - PWM_LIMIT;}   //pid_old = pwm + PWM_LIMIT; }
     // Adjust pwm for max/min
-    if(pwm > 127) pwm = 127;
-    if (pwm < -127) pwm = -127;
+    if(pwm_write > 126) pwm_write = 126;
+    if (pwm_write < -126) pwm_write = -126;
 
     // Print pwm
-    //cout << "PWM: " << pwm << endl;
+    cout << "PWM: " << pwm_write << endl;
 
     /* --- UART TO MSP --- */
     unsigned char msp_data[2];    
     //msp_data[0] = 0x7F; //start byte
     //msp_data[4] = 0x7E; //Stop Byte
 
-    if(pwm > 0){
-	msp_data[0] = (127 - pwm); //first data byte
+    if(pwm_write > 0){
+	msp_data[0] = (126 - pwm_write); //first data byte
 	msp_data[0] &= ~0x80;
 	//msp_data[3] = pwm; //second data byte
 	//msp_data[3] |= 0x80;
     }else{
-	msp_data[0] = -(127 - pwm);
+	msp_data[0] = -(126 - pwm_write);
 	msp_data[0] |= 0x80;
 	//msp_data[3] = -pwm;
 	//msp_data[3] &= ~0x80;
@@ -247,7 +250,7 @@ int main(void) {
     
 
     res = write(msp_fs, msp_data, sizeof(msp_data) - 1);
-    cout << res << " Bytes written to MSP" << endl;
+    //cout << res << " Bytes written to MSP" << endl;
     
     // Update 'old' values for next loop
     if(SMA_GYRO_EN){
