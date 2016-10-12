@@ -7,8 +7,10 @@ noise reduction and location analysis to determine where in frame coloured objec
 Outputs: outputs left or right values to the Raspberry Pi's bluetooth serial port to be
 read and processed by BBB.
 */
-//TODO: Convert file read process to separate function/header.
-//TODO: Change output from console to Serial Port.
+/*
+ * TODO: Estimate angle of robot based on 2 markers on top of robot
+ * TODO: Compute directions for robot to take t get to final marker
+ */
 
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -35,10 +37,19 @@ bool ctrl_win = 1; // 1 for control box window, 0 otherwise
 bool out_thrs = 1; // 1 outputs threshold window
 bool out_orig = 0; // 1 outputs original window
 bool output = 0;   // 1 turns on left/right output
+bool green = 0;
+bool orange = 1;
 
 int iLowH, iHighH;
 int iLowS, iHighS;
 int iLowV, iHighV;
+
+
+//Location of cones
+int cones[20][2];
+//Location of objects
+int objects[20][2]; // [no.][x,y]
+
 
 int main(int argc, char* argv[])
 {
@@ -159,88 +170,86 @@ int main(int argc, char* argv[])
   // Binary Thresholded Image & Final image
   Mat imgThreshold;
   Mat imgFinal;
-  
-  cout << "Green" << endl;
-  // Processing to find GREEN cones
-  inRange( imgHSV, Scalar(0, 111, 162), Scalar(179, 255, 255), imgThreshold);
+  Mat dst = Mat::zeros(imgOriginal.rows, imgOriginal.cols, CV_8UC3);  
 
-  // Noise Reduction
-  erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
-  dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+  if(green){
+    cout << "Green" << endl;
+    // Processing to find GREEN cones
+    inRange( imgHSV, Scalar(0, 111, 162), Scalar(179, 255, 255), imgThreshold);
 
-  dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
-  erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+    // Noise Reduction
+    erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+    dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
 
-  // Find Contours of Image
-  vector<vector<Point> > contours;
-  vector<Vec4i> heirarchy;
-  Mat dst = Mat::zeros(imgOriginal.rows, imgOriginal.cols, CV_8UC3);
+    dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+    erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
 
-  findContours( imgThreshold, contours, heirarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
-
-  cout << "processing" << endl;
-  //Location of cones
-  int cones[10][2]; // [no.][x,y]
-  
-  //iterate through top_level components
-  int idx = 0;
-  int count = 0;
-  for( ; idx >= 0; idx = heirarchy[idx][0])
-    {
-      Scalar color( rand()&255, rand()&255, rand()&255);
-      drawContours( dst, contours, idx, color, 2, 8, heirarchy);
-      Moments cMoments = moments(contours[idx]);
-      cones[idx][0] = (int)(cMoments.m10/cMoments.m00);
-      cones[idx][1] = (int)(cMoments.m01/cMoments.m00);
-      circle(dst, Point(cones[idx][0],cones[idx][1]), 3, Scalar(0, 255, 0), -1);
-      count ++;
-    }
-  cout << "contours: " << count << endl;
-  for(int k=0;k <3; k++)
-    {
-      cout << "x: " << cones[k][0] << " y: " << cones[k][1] << endl;
-    }
-  
-  cout << "Orange" << endl;
-  //Processing to find ORANGE Objects
-  inRange(imgHSV, Scalar(0, 0 , 216), Scalar(69, 255, 255), imgThreshold);
-
-  // Noise Reduction
-  erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
-  dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
-
-  dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
-  erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
-
-  // Find Contours of Image
-  //dst = Mat::zeros(imgOriginal.rows, imgOriginal.cols, CV_8UC3);
-  findContours( imgThreshold, contours, heirarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
-
-  //Location of cones
-  int objects[20][2]; // [no.][x,y]
-  
-  //iterate through top_level components
-  idx = 0;
-  count = 0;
-  for( ; idx >= 0; idx = heirarchy[idx][0])
-    {
-      Scalar color( rand()&255, rand()&255, rand()&255);
-      drawContours( dst, contours, idx, color, 2, 8, heirarchy);
-      Moments cMoments = moments(contours[idx]);
-      objects[idx][0] = (int)(cMoments.m10/cMoments.m00);
-      objects[idx][1] = (int)(cMoments.m01/cMoments.m00);
-      circle(dst, Point(objects[idx][0],objects[idx][1]), 3, Scalar(0, 255, 0), -1);
-      count ++;
-    }
-  cout << "orange contours: " << count << endl;
-  for(int k=0;k <3; k++)
-    {
-      cout << "x: " << objects[k][0] << " y: " << objects[k][1] << endl;
-    }
-  
+    // Find Contours of Image
+    vector<vector<Point> > contours;
+    vector<Vec4i> heirarchy;
+    
+    findContours( imgThreshold, contours, heirarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
+    
+    cout << "processing" << endl;
+    
+    //iterate through top_level components
+    int idx = 0;
+    int count = 0;
+    for( ; idx >= 0; idx = heirarchy[idx][0])
+      {
+	Scalar color( rand()&255, rand()&255, rand()&255);
+	drawContours( dst, contours, idx, color, 2, 8, heirarchy);
+	Moments cMoments = moments(contours[idx]);
+	cones[idx][0] = (int)(cMoments.m10/cMoments.m00);
+	cones[idx][1] = (int)(cMoments.m01/cMoments.m00);
+	circle(dst, Point(cones[idx][0],cones[idx][1]), 3, Scalar(0, 255, 0), -1);
+	count ++;
+      }
+    cout << "contours: " << count << endl;
+    for(int k=0;k <3; k++)
+      {
+	cout << "x: " << cones[k][0] << " y: " << cones[k][1] << endl;
+      }
+  }
+  if(orange){
+    cout << "Orange" << endl;
+    //Processing to find ORANGE Objects
+    inRange(imgHSV, Scalar(7, 93 , 165), Scalar(22, 130, 203), imgThreshold);
+    
+    // Noise Reduction
+    erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+    dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+    
+    dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+    erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+    
+    // Find Contours of Image
+    vector<vector<Point> > contours;
+    vector<Vec4i> heirarchy;
+    findContours( imgThreshold, contours, heirarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
+    
+    //iterate through top_level components
+    int idx = 0;
+    int count = 0;
+    for( ; idx >= 0; idx = heirarchy[idx][0])
+      {
+	Scalar color( rand()&255, rand()&255, rand()&255);
+	drawContours( dst, contours, idx, color, 2, 8, heirarchy);
+	Moments cMoments = moments(contours[idx]);
+	objects[idx][0] = (int)(cMoments.m10/cMoments.m00);
+	objects[idx][1] = (int)(cMoments.m01/cMoments.m00);
+	circle(dst, Point(objects[idx][0],objects[idx][1]), 3, Scalar(0, 255, 0), -1);
+	count ++;
+      }
+    cout << "orange contours: " << count << endl;
+    for(int k=0;k <3; k++)
+      {
+	cout << "x: " << objects[k][0] << " y: " << objects[k][1] << endl;
+      }
+  }
   namedWindow( "Contours" , 1);
   imshow("Contours", dst);
-
+  
   waitKey(30);
   
   while(true)
@@ -257,15 +266,15 @@ int main(int argc, char* argv[])
       // Colour converted image
       cvtColor(imgOriginal, imgHSV, CV_BGR2HSV);
 
-      // Treshold image based on values read from file
+      // Threshold image based on values read from file
       inRange(imgHSV, Scalar(iLowH, iLowS, iLowV), Scalar(iHighH, iHighS, iHighV), imgThreshold);
 
       // Noise reduction via open/close
-      erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
-      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+      erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(3,3)));
+      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(3,3)));
 
-      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
-      erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(3,3)));
+      erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(3,3)));
 
       // Moments function to find centre of blob
       Moments oMoments = moments(imgThreshold);
@@ -297,10 +306,19 @@ int main(int argc, char* argv[])
 	           circle(imgFinal, Point(posX, posY), 5, Scalar(0, 0, 255), -1, 8);
 	          }
 
-      // Draw line down centre of image to denote left/right side
-      line(imgFinal, Point(posX, posY), Point(objects[0][0], objects[0][1]), Scalar(0, 255, 0), 2, 8);
+      // Draw line from centre of robot to final marker
+      line(imgFinal, Point(posX, posY), Point(objects[0][0], objects[0][1]), Scalar(0, 255, 0), 1, 8);
+      float heading = atan2(objects[0][0] - posX, objects[0][1] - posY);
       
       // Tilt Calculation
+      float tilt = -0.5 * atan2(2.0*((dM11/dArea)-posX*posY),((dM20/dArea)-(posX*posX))-((dM02/dArea)-(posY*posY)));
+      int length = 150;
+      line(imgFinal, Point(posX, posY), Point((int) posX + length*cos(tilt), (int)posY - length*sin(tilt)), Scalar(0, 0, 255), 1, 8);
+
+      heading = heading - tilt - (M_PI/2);
+      tilt = (tilt*180.0)/M_PI;
+      cout << "tilt: " << tilt;
+      cout << " difference: " << (heading*180.0)/M_PI << endl;
       
       if(out_thrs == 1) imshow("Thresholded Image",imgFinal);
       if(out_orig == 1) imshow("Original", imgOriginal);
