@@ -19,15 +19,15 @@
 #define FALSE 0
 #define TRUE 1
 
-#define DATALOG_ON 1	// Comment out to disable data logging 
+//#define DATALOG_ON 0	// Comment out to disable data logging 
 #define ALPHA 0.98
 #define SMA_GYRO_EN 0
 #define SMA_TILT_EN 0
 #define SMA_PERIOD 1
 #define SMA_PERIOD_TILT 1
-#define ANGLE_OFFSET -6
-#define PWM_LIMIT 2
-#define DEADBAND_LIMIT 0.5
+#define ANGLE_OFFSET 
+ v#define PWM_LIMIT 2
+#define DEADBAND_LIMIT 0
 
 using namespace std;
 
@@ -43,7 +43,7 @@ int pwm, pwm_write;
 /* ---- PID gain values ---- 
 --------------------------*/
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
-float kp = 40, ki = 0.001, kd = 1, kv = 0;
+float kp = 30, ki = 0.0, kd = 0, kv = 0;
 /*------------------------*/
 
 // SMA variables
@@ -181,7 +181,7 @@ int main(void) {
     printf("CF Angle: %-3.4f\n", CFangle+ANGLE_OFFSET);
     //printf("gyro_z_SMA: %6f\tsampleCount: %i\n", gyro_z_SMA, sampleCount);
 
-    
+    /*
     // --- DATA LOGGING ---
     #ifdef DATALOG_ON
         if(fs.is_open())
@@ -191,11 +191,11 @@ int main(void) {
 	    fs << gyro[0] << "\t" << gyro[1] << "\t" << gyro [2] << "\t";
 	    fs << DT << "\t";
 	    fs << CFangle+ANGLE_OFFSET << "\t";
-	    fs << CFangle << "\t\n";
+	    fs << gyro_z_SMA << "\t\n";
         }
    	count++;
     #endif
-   
+    */
     
     /* ------ PID control ------
      *   Input will be CFangle - filtered tilt angle
@@ -264,7 +264,6 @@ int main(void) {
 	//}
     pid_old = pwm;
     CFangle_old = CFangle;
-   // usleep(15000);
   }
   /*
   #ifdef DATALOG_ON
