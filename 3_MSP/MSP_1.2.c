@@ -1,6 +1,6 @@
-/*
- *
- *
+/*	Matt's changes to 1.1
+ *	  Removed boundary state (PWM=0)
+ *	  
  */
 
 #include  "msp430g2553.h"
