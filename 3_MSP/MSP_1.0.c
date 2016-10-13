@@ -1,6 +1,6 @@
-/*
- *
- *
+/*	Original UART code
+ *	  RX and TX functions
+ *	  Receive byte(s) and drive motors (fast decay) in same direction
  */
 
 #include  "msp430g2553.h"
