@@ -68,6 +68,7 @@ int objects[20][2]; // [no.][x,y]
 int state = 1;
 int nextpt = 0;
 int sharp = 0;
+int turn_left = 0;
 
 int main(int argc, char* argv[])
 {
@@ -269,7 +270,7 @@ int main(int argc, char* argv[])
   waitKey(30);
 
   pt1[0] = (cones[0][0] + cones[1][0] + cones[2][0])/3 - 50;
-  pt1[1] = (cones[1][1] + cones[2][1])/2;
+  pt1[1] = (2*cones[1][1] + cones[2][1])/3;
   pt2[0] = (cones[0][0] + cones[1][0] + cones[2][0])/3;
   pt2[1] = (cones[1][1] + cones[2][1])/2;
   pt3[0] = (cones[0][0] + cones[1][0] + cones[2][0])/3 + 50;
@@ -365,7 +366,24 @@ int main(int argc, char* argv[])
 	case 2:
 	  point[0] = ramp[0];
 	  point[1] = ramp[1];
-	case 500:
+	  break;
+	case 3:
+	  point[0] = ptStop[0];
+	  point[1] = ptStop[1];
+	  break;
+	case 4:
+	  point[0] = ramp[0];
+	  point[1] = ramp[1] - 120;
+	  break;
+	case 5:
+	  point[0] = pt1[0];
+	  point[1] = pt1[1];
+	  break;
+	case 6:
+	  point[0] = ptStart[0];
+	  point[1] = ptStart[1];
+	  break;
+/*	case 500:
 	  point[0] = ramp[0];
 	  point[1] = ramp[1];
 	  break;
@@ -400,7 +418,7 @@ int main(int argc, char* argv[])
 	case 11:
 	  point[0] = ptStart[0];
 	  point[1] = ptStart[1];
-	  break;
+	  break;*/
 	}
 	line(imgFinal, Point(posX, posY), Point(point[0], point[1]), Scalar(0, 255, 0), 1, 8);
 	float heading = atan2(point[0] - posX, point[1] - posY);
@@ -441,7 +459,7 @@ int main(int argc, char* argv[])
 
       // if state greater than turning point, add Pi
       heading = heading - tilt - (M_PI/2);
-      if(state > 4) heading += M_PI;
+      if(state >= 4) heading += M_PI;
       heading = (heading*180.0)/M_PI;
       tilt = (tilt*180.0)/M_PI;
 
@@ -503,7 +521,10 @@ int num = 0;
    	{
      	//num = write(fd,right,sizeof(right)-1);
      	cout << " Go Straight" << endl;
-     	data[3] = 0x01; //forward data type
+		if(state == 2){
+			data[3] = 0x05; // fast forward type
+		}
+     		else {data[3] = 0x01;} //forward data type
    	}
  	else
    	{
@@ -511,11 +532,14 @@ int num = 0;
      	cout << " Turn Right" << endl;
      	data[3] = 0x08; // Right data type
   	 }
-  	 
-  	if( sqrt((point[0] - posX)^2 + (point[1] - posY)^2) < 10){
+	if(state >= 4 && turn_left < 60){
+	data[3] = 0x04;
+	turn_left ++;
+	}
+  	if( sqrt((point[0] - posX)^2 + (point[1] - posY)^2) < 7){
    		cout << "Stop" << endl;
    		data[3] = 0xFF; // stop data type
-		if(nextpt == 3){
+		if(nextpt == 2){
 		  state++;
 		  nextpt = 0;
 		}
