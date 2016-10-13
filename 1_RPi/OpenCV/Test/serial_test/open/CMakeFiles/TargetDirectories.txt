@@ -1,0 +1,1 @@
+/home/pi/TRC3000_N/1_RPi/OpenCV/Test/serial_test/open/CMakeFiles/prog.dir
