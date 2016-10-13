@@ -154,6 +154,12 @@ int main(int argc, char* argv[])
   Mat imgOriginal;
   bool bSuccess;
 
+  // Initialiation
+  for(int k=0; k< 10; k++){
+    bSuccess = cap.read(imgOriginal);
+    waitKey(30);
+  }
+  
   // Read Image
   bSuccess = cap.read(imgOriginal);
 
@@ -214,7 +220,7 @@ int main(int argc, char* argv[])
   if(orange){
     cout << "Orange" << endl;
     //Processing to find ORANGE Objects
-    inRange(imgHSV, Scalar(7, 93 , 165), Scalar(22, 130, 203), imgThreshold);
+    inRange(imgHSV, Scalar(0, 0 , 216), Scalar(69, 255, 255), imgThreshold);
     
     // Noise Reduction
     erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
@@ -316,10 +322,12 @@ int main(int argc, char* argv[])
       line(imgFinal, Point(posX, posY), Point((int) posX + length*cos(tilt), (int)posY - length*sin(tilt)), Scalar(0, 0, 255), 1, 8);
 
       heading = heading - tilt - (M_PI/2);
+      heading = (heading*180.0)/M_PI;
       tilt = (tilt*180.0)/M_PI;
+
       cout << "tilt: " << tilt;
-      cout << " difference: " << (heading*180.0)/M_PI << endl;
-      
+      cout << " difference: " << heading << endl;
+
       if(out_thrs == 1) imshow("Thresholded Image",imgFinal);
       if(out_orig == 1) imshow("Original", imgOriginal);
 
@@ -330,16 +338,27 @@ int main(int argc, char* argv[])
 	}
 
 int num = 0;
-      if( posX < 319 && output)
-	{
-	  //num = write(fd,left,sizeof(left)-1);
-	  //cout << "L Data Sent: " << num << " bytes" << endl;
-	}
-      else if(output)
-	{
-	  //num = write(fd,right,sizeof(right)-1);
-	  //cout << "R Data Sent: " << num << " bytes" << endl;
-	}
+ 
+ if( sqrt((objects[0][0] - posX)^2 + (objects[0][1] - posY)^2) < 10){
+   cout << "Stop" << endl;
+   continue;
+ }
+ 
+ if( heading > 5 )
+   {
+     //num = write(fd,left,sizeof(left)-1);
+     cout << "Turn Left" << endl;
+   }
+ else if(heading < 5 && heading > -5)
+   {
+     //num = write(fd,right,sizeof(right)-1);
+     cout << "Go Straight" << endl;
+   }
+ else
+   {
+     //num = write(fd, ....
+     cout << "Turn Right" << endl;
+   }
     }
   //tcsetattr(fd, TCSANOW, &oldtio);
   // close(fd);
