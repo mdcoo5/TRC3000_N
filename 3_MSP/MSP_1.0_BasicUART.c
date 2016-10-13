@@ -34,10 +34,10 @@ void main(void)
 	DCOCTL = CALDCO_1MHZ;
 
 	/* GPIO set up */
-	P1SEL |= BIT1 + BIT2;                     	// UART (P1.1 = RXD, P1.2 = TXD)
-	P1SEL2 |= BIT1 + BIT2;                    	// UART (P1.1 = RXD, P1.2 = TXD)
-	P1DIR |= BIT0 + BIT6;						// Red/green LED
-	P1OUT &= ~(BIT0 + BIT6);					// Red/green LED
+	P1SEL |= BIT1 + BIT2;                   	  	// UART (P1.1 = RXD, P1.2 = TXD)
+	P1SEL2 |= BIT1 + BIT2;          	          	// UART (P1.1 = RXD, P1.2 = TXD)
+	P1DIR |= BIT0;						// Red/green LED
+	P1OUT &= ~BIT0;						// Red/green LED
 	P2DIR |= BIT1 + BIT2 + BIT4 + BIT5;			// Motor drive signal pins
 
 	/* TimerA1 (PWM) configuration */
