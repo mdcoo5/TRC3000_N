@@ -363,19 +363,19 @@ int main(int argc, char* argv[])
 	  point[1] = pt1[1];
 	  break;
 	case 2:
-	  point[0] = pt2[0];
-	  point[1] = pt2[1];
-	case 3:
-	  point[0] = pt3[0];
-	  point[1] = pt3[1];
-	  break;
-	case 4:
+	  point[0] = ramp[0];
+	  point[1] = ramp[1];
+	case 500:
 	  point[0] = ramp[0];
 	  point[1] = ramp[1];
 	  break;
-	case 5:
-	  point[0] = pt5[0];
-	  point[1] = pt5[1];
+	case 501:
+	  point[0] = ramp[0];
+	  point[1] = ramp[1];
+	  break;
+	case 3:
+	  point[0] = ptStop[0];
+	  point[1] = ptStop[1];
 	  break;
 	case 6:
 	  point[0] = ptStop[0];
@@ -441,7 +441,7 @@ int main(int argc, char* argv[])
 
       // if state greater than turning point, add Pi
       heading = heading - tilt - (M_PI/2);
-      //if(state > 4) heading += M_PI;
+      if(state > 4) heading += M_PI;
       heading = (heading*180.0)/M_PI;
       tilt = (tilt*180.0)/M_PI;
 
@@ -497,31 +497,27 @@ int num = 0;
    	{
      	//num = write(fd,left,sizeof(left)-1);
      	cout << " Turn Left" << endl;
-	//if(sharp) data[3] = 0x05;//new data case
      	data[3] = 0x04; // Left data type
    	}
  	else if(heading < 10 && heading > -10)
    	{
      	//num = write(fd,right,sizeof(right)-1);
      	cout << " Go Straight" << endl;
-	//sharp  = 0;
      	data[3] = 0x01; //forward data type
    	}
  	else
    	{
      	//num = write(fd, ....
      	cout << " Turn Right" << endl;
-//	if(sharp) data[3] = 0x09; //new data case
      	data[3] = 0x08; // Right data type
   	 }
   	 
-  	if( sqrt((point[0] - posX)^2 + (point[1] - posY)^2) < 5){
+  	if( sqrt((point[0] - posX)^2 + (point[1] - posY)^2) < 10){
    		cout << "Stop" << endl;
    		data[3] = 0xFF; // stop data type
 		if(nextpt == 3){
 		  state++;
 		  nextpt = 0;
-//		  sharp = 1;
 		}
 		else nextpt++;
  	}
