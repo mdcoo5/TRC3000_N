@@ -1,3 +1,10 @@
+/* 	MSP does the heavy lifting (no BBB)
+ *	  Reads from I2C
+ *	  Computes angle, filtered angle, PID, etc
+ *	  Drives motors in same direction
+ */
+
+
 /* --COPYRIGHT--,
  * Copyright (c) 2013, Bariscan Kayaoglu
  * All rights reserved.

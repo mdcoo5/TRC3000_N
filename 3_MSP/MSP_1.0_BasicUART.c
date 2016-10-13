@@ -1,6 +1,6 @@
-/*
- *
- *
+/*	Original UART code
+ *	  RX and TX functions
+ *	  Receive byte(s) and drive motors (fast decay) in same direction
  */
 
 #include  "msp430g2553.h"
@@ -25,7 +25,6 @@ void UART_Transmit(void);
 /* Other function prototypes */
 void driveMotors(unsigned char L_CTRL, unsigned char R_CTRL);
 
-int fastDecay = 0;
 
 /* main() */
 void main(void)
@@ -35,10 +34,10 @@ void main(void)
 	DCOCTL = CALDCO_1MHZ;
 
 	/* GPIO set up */
-	P1SEL |= BIT1 + BIT2;                     	// UART (P1.1 = RXD, P1.2 = TXD)
-	P1SEL2 |= BIT1 + BIT2;                    	// UART (P1.1 = RXD, P1.2 = TXD)
-	P1DIR |= BIT0;								// Red/green LED
-	P1OUT &= ~BIT0;								// Red/green LED
+	P1SEL |= BIT1 + BIT2;                   	  	// UART (P1.1 = RXD, P1.2 = TXD)
+	P1SEL2 |= BIT1 + BIT2;          	          	// UART (P1.1 = RXD, P1.2 = TXD)
+	P1DIR |= BIT0;						// Red/green LED
+	P1OUT &= ~BIT0;						// Red/green LED
 	P2DIR |= BIT1 + BIT2 + BIT4 + BIT5;			// Motor drive signal pins
 
 	/* TimerA1 (PWM) configuration */
@@ -55,8 +54,8 @@ void main(void)
 	UART_Setup();								// Setup UART
 
 	while(1){
-		UART_Receive(1);						// Receive 1 bytes of UART data
-		driveMotors(UART_RxBuffer[0], UART_RxBuffer[0]);
+		UART_Receive(5);						// Receive 2 bytes of UART data
+		driveMotors(UART_RxBuffer[2], UART_RxBuffer[3]);
 	}
 }
 
@@ -81,15 +80,15 @@ void UART_Receive(unsigned char num_RX_Bytes)
 													// Remain in LPM0 until all data is received*/
 }
 
-///* UART transmit data function */
-//void UART_Transmit()
-//{
-//	i = 0;
-//	UCA0TXBUF = string[i++];
-//	UC0IE |= UCA0TXIE;								// Enable UART TX interrupt
-//	__bis_SR_register(CPUOFF + GIE);    			// Enter LPM0 w/ interrupts
-//													// Remain in LPM0 until all data is received*/
-//}
+/* UART transmit data function */
+void UART_Transmit()
+{
+	i = 0;
+	UCA0TXBUF = string[i++];
+	UC0IE |= UCA0TXIE;								// Enable UART TX interrupt
+	__bis_SR_register(CPUOFF + GIE);    			// Enter LPM0 w/ interrupts
+													// Remain in LPM0 until all data is received*/
+}
 
 /* UART RX interrupt servicing */
 #pragma vector=USCIAB0RX_VECTOR
@@ -127,69 +126,28 @@ __interrupt void USCI0TX_ISR(void)
 	}
 }
 
-
 void driveMotors(unsigned char L_CTRL, unsigned char R_CTRL)
 {
-	/* Motor direction and decay mode */
-	//	  Fast decay:
-	//		  PWM	  0			Forward
-	//		  0	  	  PWM		Reverse
-	if(fastDecay){
-		if(L_CTRL&MOTOR_FWD){				// LEFT motor forward:
-			P2SEL &= ~BIT2;					//   Clear PWM for LIN2
-			P2OUT &= ~BIT2;					//   Clear BIT2 out (LIN2) for fast decay
-			P2SEL |= BIT1; 					//   PWM for LIN1
-		}else{								// LEFT motor reverse:
-			P2SEL &= ~BIT1;					//   Clear PWM for LIN1
-			P2OUT &= ~BIT1;					//   Clear BIT1 out (LIN1) for fast decay
-			P2SEL |= BIT2; 					//   PWM for LIN2
-		}
-
-		if(R_CTRL&MOTOR_FWD){				// RIGHT motor forward:
-			P2SEL &= ~BIT5;					//   Clear PWM for RIN2
-			P2OUT &= ~BIT5;					//   Clear BIT5 out (RIN2) for fast decay
-			P2SEL |= BIT4; 					//   PWM for RIN1
-		}else{								// RIGHT motor reverse:
-			P2SEL &= ~BIT4;					//   Clear PWM for RIN1
-			P2OUT &= ~BIT4;					//   Clear BIT4 out (RIN1) for fast decay
-			P2SEL |= BIT5; 					//   PWM for RIN2
-		}
-	}else{
-	//	  Fast decay:
-	//		  1		  	PWM		Forward
-	//		  PWM	  	1		Reverse
-		if(L_CTRL&MOTOR_FWD){				// LEFT motor forward:
-			P2SEL &= ~BIT1;					//   Clear PWM for LIN1
-			P2OUT |= BIT1;					//   Set BIT1 out (LIN1) for slow decay
-			if(L_CTRL > 0) P2OUT |= BIT1;
-			else P2OUT &= ~BIT1;            // 	 Clear BIT1 so motors do not see fast (PWM=0, BIT1=1)
-			P2SEL |= BIT2; 					//   PWM for LIN2
-		}else if(L_CTRL){								// LEFT motor reverse:
-			P2SEL &= ~BIT2;					//   Clear PWM for LIN2
-			if(L_CTRL > 0) P2OUT |= BIT2;		//   Set BIT2 out (LIN2) for slow decay
-			else P2OUT &= ~BIT2;			//   Clear BIT2 so motors do not see fast (PWM=0, BIT2=1)
-			P2SEL |= BIT1; 					//   PWM for LIN1
-		}else{
-			P2SEL &= ~BIT1 + ~BIT2;			// Clear to 0 at pwm = 0
-			P2OUT &= ~BIT1 + ~BIT2;
-		}
-
-		if(R_CTRL&MOTOR_FWD){				// RIGHT motor forward:
-			P2SEL &= ~BIT4;					//   Clear PWM for RIN1
-			if(R_CTRL > 0) P2OUT |= BIT4;		//   Set BIT4 out (RIN1) for slow decay
-			else P2OUT &= ~BIT4;			//   Clear BIT4 so motors do not see fast (PWM=0, BIT4=1)
-			P2SEL |= BIT5; 					//   PWM for RIN2
-		}else if(R_CTRL){								// RIGHT motor reverse:
-			P2SEL &= ~BIT5;					//   Clear PWM for RIN2
-			if(R_CTRL > 0) P2OUT |= BIT5;		//   Set BIT5 out (RIN2) for slow decay
-			else P2OUT &= ~BIT5;			//   Clear BIT5 so motors do not see fast (PWM=0, BIT5=1)
-			P2SEL |= BIT4; 					//   PWM for RIN1
-		}else{
-			P2SEL &= ~BIT4 + ~BIT5;			// Clear to 0 at pwm = 0
-			P2OUT &= ~BIT4 + ~BIT5;
-		}
+	/* Motor direction */
+	if(L_CTRL&MOTOR_FWD){				// LEFT motor forward:
+		P2SEL &= ~BIT2;					//   Clear PWM for LIN2
+       	P2OUT &= ~BIT2;					//   Clear BIT2 out (LIN2) for fast decay
+       	P2SEL |= BIT1; 					//   PWM for LIN1
+	}else{								// LEFT motor reverse:
+		P2SEL &= ~BIT1;					//   Clear PWM for LIN1
+		P2OUT &= ~BIT1;					//   Clear BIT1 out (LIN1) for fast decay
+		P2SEL |= BIT2; 					//   PWM for LIN2
 	}
 
+	if(R_CTRL&MOTOR_FWD){				// RIGHT motor forward:
+		P2SEL &= ~BIT5;					//   Clear PWM for RIN2
+       	P2OUT &= ~BIT5;					//   Clear BIT5 out (RIN2) for fast decay
+		P2SEL |= BIT4; 					//   PWM for RIN1
+	}else{								// RIGHT motor reverse:
+		P2SEL &= ~BIT4;					//   Clear PWM for RIN1
+		P2OUT &= ~BIT4;					//   Clear BIT4 out (RIN1) for fast decay
+		P2SEL |= BIT5; 					//   PWM for RIN2
+	}
 
 	/* Motor PWM */
 	TA1CCR1 = (L_CTRL&MOTOR_PWM_DUTY);	// LEFT motor duty cycle
