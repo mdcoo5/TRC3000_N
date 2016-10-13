@@ -20,13 +20,13 @@
 #define TRUE 1
 
 // #define DATALOG_ON 1	// Comment out to disable data logging 
-#define ALPHA 0.98
-#define SMA_GYRO_EN 0
-#define SMA_TILT_EN 0
-#define SMA_PERIOD 1
-#define SMA_PERIOD_TILT 1
-#define ANGLE_OFFSET  0
-#define PWM_LIMIT 2
+#define ALPHA 0.94
+#define SMA_GYRO_EN 1
+#define SMA_TILT_EN 1
+#define SMA_PERIOD  10
+#define SMA_PERIOD_TILT 15
+#define ANGLE_OFFSET -5
+#define PWM_LIMIT 5
 #define DEADBAND_LIMIT 0.5
 
 using namespace std;
@@ -42,8 +42,7 @@ int pwm, pwm_write;
 
 /* ---- PID gain values ---- 
 --------------------------*/
-//float kp = 30, ki = 0, kd = 1.25, kv = 0;
-float kp = 25, ki = 0, kd = 0.3, kv = 0;
+float kp = 30, ki = 0, kd = 0.5, kv = 0;
 /*------------------------*/
 
 // SMA variables
@@ -69,7 +68,7 @@ int main(void) {
   int msp_fs, res;
  
   #ifdef DATALOG_ON
-  ofstream fs ("data.txt"); //datalogging
+  ofstream fs ("data.txt");
   #endif
 
   open_bus(); // I2C Bus
@@ -116,7 +115,7 @@ int main(void) {
   static int m = SMA_PERIOD_TILT + 1;
   
   while(1) {
-    // --- READ ACCELEROMETER VALUES
+    // --- READ ACCELEROMETER VALUES ---
     get_accel();
     get_gyro();
     clock_gettime(CLOCK_MONOTONIC, &time_tag);
@@ -128,7 +127,7 @@ int main(void) {
     // --- CONVERSION FOR ANGLE APPROXIMATION ---
     angle = -atan2(accel[1], sqrt(pow(-accel[2],2) + pow(-accel[0],2)));
 
-    /*
+    
     // --- SMA - ACCEL TILT ANGLE ---
     if(SMA_TILT_EN){
         if(sampleCount_tilt > 0) sampleCount_tilt--;
@@ -160,42 +159,41 @@ int main(void) {
         if(!sampleCount) SMA_sum -= SMA_buffer[SMA_buffer_startIdx];
         gyro_z_SMA = SMA_sum / SMA_PERIOD;
     }
-    */
+    
     
     // --- COMPLEMENTARY FILTER ---
-    //if(SMA_TILT_EN){
+    if(SMA_TILT_EN){
 	// CF uses filtered tilt
-        //CFangle = (ALPHA * (CFangle_old + gyro_old*(DT))) + ((1-ALPHA) * ((tilt_SMA*180)/M_PI));
-    //}else{
-	// CF doesn't  use filtered tilt (but does use filtered gyro (old) if(SMA_GYRO_EN))
+        CFangle = (ALPHA * (CFangle_old + gyro_old*(DT))) + ((1-ALPHA) * ((tilt_SMA*180)/M_PI));
+    }else{
+	// CF doesn't use filtered tilt (but does use filtered gyro (old) if(SMA_GYRO_EN))
         CFangle = (ALPHA * (CFangle_old + gyro_old*(DT))) + ((1-ALPHA) * ((angle*180)/M_PI));
-	//}
+	}
 
     // --- OUTPUT VALUES ---
-    /*
-    printf("Tilt: %-3.4f\t", (angle[0]*180.0)/M_PI);
-    printf("Gyro x: %-6f\ty:%6f\tz:%6f\t", gyro[0], gyro[1], gyro[2]);
-    printf("Clock value: %lu\t", time_tag.tv_nsec);
-    printf("dt: %-2.6f\t", DT);
-    */
-    printf("CF Angle: %-3.4f\n", CFangle+ANGLE_OFFSET);
+   // printf("Tilt: %-3.4f\t", (angle[0]*180.0)/M_PI);
+   // printf("Gyro x: %-6f\ty:%6f\tz:%6f\t", gyro[0], gyro[1], gyro[2]);
+   // printf("Clock value: %lu\t", time_tag.tv_nsec);
+   // printf("dt: %-2.6f\t", DT);
+    
+   // printf("CF Angle: %-3.4f\n", CFangle+ANGLE_OFFSET);
     //printf("gyro_z_SMA: %6f\tsampleCount: %i\n", gyro_z_SMA, sampleCount);
 
-    /* 
+     
     // --- DATA LOGGING ---
     #ifdef DATALOG_ON
         if(fs.is_open())
         {
-	    fs << count << "\t";
-	    fs << (angle*180.0)/M_PI << "\t";
-	    fs << gyro[0] << "\t" << gyro[1] << "\t" << gyro [2] << "\t";
-	    fs << DT << "\t";
-	    fs << CFangle+ANGLE_OFFSET << "\t";
-	    fs << CFangle << "\t\n";
+			fs << count << "\t";
+			fs << (angle*180.0)/M_PI << "\t";
+			fs << gyro[0] << "\t" << gyro[1] << "\t" << gyro [2] << "\t";
+			fs << DT << "\t";
+			fs << CFangle+ANGLE_OFFSET << "\t";
+			fs << CFangle << "\t\n";
         }
    	count++;
     #endif
-    */
+    
     
     /* ------ PID control ------
      *   Input will be CFangle - filtered tilt angle
@@ -203,25 +201,25 @@ int main(void) {
      */
 
     // Add to integral terms
-    pid_int += (CFangle+ANGLE_OFFSET)*DT; //change back to CFangle !!!!!!!!!
+    pid_int += (CFangle+ANGLE_OFFSET)*DT;
     pid_v += pid_old*DT;
 
     // Update PWM value if bot is outside deadband
-    //if((CFangle+ANGLE_OFFSET) > DEADBAND_LIMIT || (CFangle+ANGLE_OFFSET) < -DEADBAND_LIMIT){
-    // if(SMA_GYRO_EN){
-            // Use gyro_z_SMA for d term
-    //      pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro_z_SMA) - (kv*pid_v); //change back to CFangle !!!!!!
+    if((CFangle+ANGLE_OFFSET) > DEADBAND_LIMIT || (CFangle+ANGLE_OFFSET) < -DEADBAND_LIMIT){
+    if(SMA_GYRO_EN){
+        // Use gyro_z_SMA for d term
+        pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro_z_SMA) - (kv*pid_v); //change back to CFangle !!!!!!
 
 	    // Print P, I, D
 	    //cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro_z_SMA << " V: " << -(kv*pid_v) << endl;
-    //  }else{
-            // Use gyro[2] for d term
+    }else{
+        // Use gyro[2] for d term
 	    pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro[2]) - (kv*pid_v);
           
 	    // Print P, I, D
 	    //cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro[2] << " V: " << -(kv*pid_v) << endl;
-	    //} 	
-	    //}
+	    } 	
+    }
     
     // Adjust pwm for offset (PWM_LIMIT)
     if(pwm >= 0) {pwm_write = pwm + PWM_LIMIT;}       //pid_old = pwm - PWM_LIMIT; }
@@ -238,17 +236,17 @@ int main(void) {
     unsigned char msp_data[2];
     int pwm_sent, dir_sent;
 
-    if(pwm_write >0){
-       msp_data[0] = (126 - pwm_write);
-	pwm_sent = msp_data[0];
-       msp_data[0] &= ~0x80;
-	dir_sent = 0;
-   } else{
-       msp_data[0] = (126 +  pwm_write);
-	pwm_sent = msp_data[0];
-       msp_data[0] |= 0x80;
-	dir_sent = 1;
-     }
+    if(pwm_write > 0){
+		msp_data[0] = (126 - pwm_write);
+		pwm_sent = msp_data[0];
+		msp_data[0] &= ~0x80;
+		dir_sent = 0;
+	}else{
+		msp_data[0] = (126 + pwm_write);
+		pwm_sent = msp_data[0];
+		msp_data[0] |= 0x80;
+		dir_sent = 1;
+    }
 
      cout << "pwm_write: " <<  pwm_write << "    msp_data[0]: " << pwm_sent << "    direction: " << dir_sent << endl;
      msp_data[1] = 0;
@@ -279,20 +277,21 @@ int main(void) {
     //cout << res << " Bytes written to MSP" << endl;
     
     // Update 'old' values for next loop
-    //if(SMA_GYRO_EN){
-    //    gyro_old = gyro_z_SMA;
-    //}else{
-    gyro_old = gyro[2];
-	//}
-    pid_old = pwm;
+    if(SMA_GYRO_EN){
+		gyro_old = gyro_z_SMA;
+    }else{
+		gyro_old = gyro[2];
+    }
+    
+	pid_old = pwm;
     CFangle_old = CFangle;
    // usleep(15000);
   }
-  /*
+  
   #ifdef DATALOG_ON
-  fs.close();
+	fs.close();
   #endif
-  */
+  
   tcsetattr(msp_fs, TCSANOW, &oldtio);
   close(msp_fs);
   return 1;
