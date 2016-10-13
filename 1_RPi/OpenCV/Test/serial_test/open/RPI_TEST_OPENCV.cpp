@@ -33,7 +33,6 @@ read and processed by BBB.
 #define ANGLE_SMA 1
 #define ANG_SMA_PERIOD 2
 
-
 float sma[ANG_SMA_PERIOD];
 int sma_ptr = 0;
 
@@ -68,6 +67,7 @@ int objects[20][2]; // [no.][x,y]
 
 int state = 1;
 int nextpt = 0;
+int sharp = 0;
 
 int main(int argc, char* argv[])
 {
@@ -80,7 +80,7 @@ int main(int argc, char* argv[])
       cout << "Cannot open the camera" << endl;
       return -1;
     }
-/*      
+
   fd = open(DEVICE, O_RDWR | O_NOCTTY | O_NDELAY );
   if (fd < 0) { cout << "Error opening device" << endl; return -1; }
   else cout << "Device opened successfully" << endl;
@@ -94,7 +94,6 @@ int main(int argc, char* argv[])
   newtio.c_lflag = ICANON;
   tcflush(fd, TCIFLUSH);
   tcsetattr(fd, TCSANOW, &newtio);
-  */
   
   // Initial opening and read of threshold value file
   std::fstream fs;
@@ -287,16 +286,16 @@ int main(int argc, char* argv[])
   ptStart[0] = Start[0];
   ptStart[1] = Start[1];
 
-  if(objects[0][0] > 400){Stop[0] = objects[0][0]; Stop[1] = objects[0][1];}
-  if(objects[1][0] > 400){Stop[0] = objects[1][0]; Stop[1] = objects[1][1];}
-  if(objects[2][0] > 400){Stop[0] = objects[2][0]; Stop[1] = objects[2][1];}
+  if(objects[0][0] > 500){Stop[0] = objects[0][0]; Stop[1] = objects[0][1];}
+  if(objects[1][0] > 500){Stop[0] = objects[1][0]; Stop[1] = objects[1][1];}
+  if(objects[2][0] > 500){Stop[0] = objects[2][0]; Stop[1] = objects[2][1];}
 
   ptStop[0] = Stop[0];
   ptStop[1] = Stop[1];
   
-  if(objects[0][0] > 200 && objects[0][0] < 400) {ramp[0] = objects[0][0]; ramp[1] = objects[0][1];}
-  else if(objects[1][0] > 200 && objects[1][0] < 400) {ramp[0] = objects[1][0]; ramp[1] = objects[1][1];}
-  else if(objects[2][0] > 200 && objects[2][0] < 400) {ramp[0] = objects[2][0]; ramp[1] = objects[2][1];}
+  if(objects[0][0] > 200 && objects[0][0] <500) {ramp[0] = objects[0][0]; ramp[1] = objects[0][1];}
+  else if(objects[1][0] > 200 && objects[1][0] < 500) {ramp[0] = objects[1][0]; ramp[1] = objects[1][1];}
+  else if(objects[2][0] > 200 && objects[2][0] < 500) {ramp[0] = objects[2][0]; ramp[1] = objects[2][1];}
   
   pt4[0] = ramp[0] - 60;
   pt4[1] = ramp[1];
@@ -371,8 +370,8 @@ int main(int argc, char* argv[])
 	  point[1] = pt3[1];
 	  break;
 	case 4:
-	  point[0] = pt4[0];
-	  point[1] = pt4[1];
+	  point[0] = ramp[0];
+	  point[1] = ramp[1];
 	  break;
 	case 5:
 	  point[0] = pt5[0];
@@ -436,29 +435,33 @@ int main(int argc, char* argv[])
       tilt = (sma[0] + sma[1])/ANG_SMA_PERIOD; //change for different sma values
 	 
       int length = 150;
-      line(imgFinal, Point(posX, posY), Point((int) posX + length*cos(tilt), (int)posY - length*sin(tilt)), Scalar(0, 0, 255), 1, 8);
+	if(out_thrs == 1){
+      		line(imgFinal, Point(posX, posY), Point((int) posX + length*cos(tilt), (int)posY - length*sin(tilt)), Scalar(0, 0, 255), 1, 8);
+	}
 
       // if state greater than turning point, add Pi
       heading = heading - tilt - (M_PI/2);
-      if(state > 4) heading += M_PI;
+      //if(state > 4) heading += M_PI;
       heading = (heading*180.0)/M_PI;
       tilt = (tilt*180.0)/M_PI;
 
       cout << " tilt: " << tilt;
       cout << " difference: " << heading;
       
+      if(out_thrs == 1){
       circle(imgFinal, Point(pt1[0], pt1[1]), 5, Scalar(255, 0, 0), -1, 8); // 1st point
       circle(imgFinal, Point(pt2[0], pt2[1]), 5, Scalar(255, 0, 0), -1, 8); // 0.5st point
       circle(imgFinal, Point(pt3[0], pt3[1]), 5, Scalar(255, 0, 0), -1, 8); // 1.5st point
 
       circle(imgFinal,Point(200,219), 5, Scalar(255, 0, 255), -1, 8);
-      circle(imgFinal, Point(400, 219), 5,Scalar(255, 0, 255), -1, 8);
+      circle(imgFinal, Point(500, 219), 5,Scalar(255, 0, 255), -1, 8);
       
       circle(imgFinal, Point(pt4[0], pt4[1]), 5, Scalar(0,0,255), -1, 8); // 2nd point
       circle(imgFinal, Point(pt5[0], pt5[1]), 5, Scalar(0,0,255), -1, 8); // 3rd Point
 
       circle(imgFinal, Point(ptStart[0], ptStart[1]), 5, Scalar(0, 0,255), -1, 8);
       circle(imgFinal, Point(ptStop[0], ptStop[1]), 5, Scalar(0,0,255), -1, 8);
+      }
 
       if(out_thrs == 1) imshow("Thresholded Image",imgFinal);
       if(out_orig == 1) imshow("Original", imgOriginal);
@@ -494,18 +497,21 @@ int num = 0;
    	{
      	//num = write(fd,left,sizeof(left)-1);
      	cout << " Turn Left" << endl;
+	//if(sharp) data[3] = 0x05;//new data case
      	data[3] = 0x04; // Left data type
    	}
  	else if(heading < 10 && heading > -10)
    	{
      	//num = write(fd,right,sizeof(right)-1);
      	cout << " Go Straight" << endl;
+	//sharp  = 0;
      	data[3] = 0x01; //forward data type
    	}
  	else
    	{
      	//num = write(fd, ....
      	cout << " Turn Right" << endl;
+//	if(sharp) data[3] = 0x09; //new data case
      	data[3] = 0x08; // Right data type
   	 }
   	 
@@ -515,6 +521,7 @@ int num = 0;
 		if(nextpt == 3){
 		  state++;
 		  nextpt = 0;
+//		  sharp = 1;
 		}
 		else nextpt++;
  	}
@@ -526,11 +533,11 @@ int num = 0;
   	 data[2] = (unsigned char) ~(data[3] + data[4] + data[5] + data[6] + data[7]);
   	 
   	 data[8] = '\r'; //return byte for BBB handling
-//	 num = write(fd, data, sizeof(data));
+	 num = write(fd, data, sizeof(data));
 } // end while
     
-  //tcsetattr(fd, TCSANOW, &oldtio);
-  //close(fd);
+  tcsetattr(fd, TCSANOW, &oldtio);
+  close(fd);
   	
   return 0;
 } // end main
