@@ -1,6 +1,6 @@
 /*	'Jittery' code
  *	  MSP receives 1 byte, drives motors (fast or slow decay)
- *
+ *	  TX function/ISR servicing also included
  */
 
 #include  "msp430g2553.h"
