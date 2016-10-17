@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <iostream>
 #include <math.h>
@@ -16,6 +15,7 @@
 #define MAG_ADDRESS 0x1E
 #define MSP_BAUDRATE B115200
 #define MSP_DEVICE "/dev/ttyO2"
+#define START_BYTE 0x7F
 #define FALSE 0
 #define TRUE 1
 
@@ -233,27 +233,34 @@ int main(void) {
     // Print pwm
     cout << "PWM: " << pwm_write << " DT: " << DT << endl;
 
+	
     /* --- UART TO MSP --- */
-    unsigned char msp_data[2];    
-    //msp_data[0] = 0x7F; //start byte
-    //msp_data[4] = 0x7E; //Stop Byte
-
+	// {Start, message, checksum}
+	
+    unsigned char msp_data[4];
+	// Start byte
+    msp_data[0] = START_BYTE;
+	// First and second message bytes (L_CTRL, R_CTRL)
     if(pwm_write > 0){
-	msp_data[0] = (127 - pwm_write); //first data byte
-	msp_data[0] &= ~0x80;
-	//msp_data[3] = pwm; //second data byte
-	//msp_data[3] |= 0x80;
+		msp_data[1] = (127 - pwm_write); 			
+		msp_data[1] &= ~0x80;						// Clear PWM_DIR bit
+		
+		msp_data[2] = (127 - pwm_write); 			
+		msp_data[2] &= ~0x80;						// Clear PWM_DIR bit
     }else{
-	msp_data[0] = -(126 - pwm_write);
-	msp_data[0] |= 0x80;
-	//msp_data[3] = -pwm;
-	//msp_data[3] &= ~0x80;
+		msp_data[1] = -(126 - pwm_write);
+		msp_data[1] |= 0x80;						// Set PWM_DIR bit
+		
+		msp_data[2] = -(126 - pwm_write);
+		msp_data[2] |= 0x80;						// Set PWM_DIR bit
     }
-    //msp_data[1] = msp_data[2] + msp_data[3]; //checksum
-    msp_data[1] = 0; //null char to terminate char string
-    
 
-    res = write(msp_fs, msp_data, sizeof(msp_data) - 1);
+	// Checksum byte
+    msp_data[3] = ~(msp_data[1] + msp_data[2]);
+	
+    //msp_data[1] = 0; //null char to terminate char string				// Null character needed?
+    
+    res = write(msp_fs, msp_data, sizeof(msp_data) - 1);				// sizeof(msp_data) - 1 ??
     //cout << res << " Bytes written to MSP" << endl;
     
     // Update 'old' values for next loop
