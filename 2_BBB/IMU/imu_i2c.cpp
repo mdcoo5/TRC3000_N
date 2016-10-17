@@ -19,7 +19,7 @@
 #define FALSE 0
 #define TRUE 1
 
-#define DATALOG_ON 1	// Comment out to disable data logging 
+// #define DATALOG_ON 1	// Comment out to disable data logging 
 #define ALPHA 0.98
 #define SMA_GYRO_EN 0
 #define SMA_TILT_EN 0
@@ -181,7 +181,7 @@ int main(void) {
     printf("CF Angle: %-3.4f\n", CFangle+ANGLE_OFFSET);
     //printf("gyro_z_SMA: %6f\tsampleCount: %i\n", gyro_z_SMA, sampleCount);
 
-    
+    /* 
     // --- DATA LOGGING ---
     #ifdef DATALOG_ON
         if(fs.is_open())
@@ -195,7 +195,7 @@ int main(void) {
         }
    	count++;
     #endif
-   
+    */
     
     /* ------ PID control ------
      *   Input will be CFangle - filtered tilt angle
@@ -216,8 +216,8 @@ int main(void) {
 	    //cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro_z_SMA << " V: " << -(kv*pid_v) << endl;
     //  }else{
             // Use gyro[2] for d term
-	    pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro[2]) - (kv*pid_v);
-
+	   // pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro[2]) - (kv*pid_v);
+            pwm = 50;
 	    // Print P, I, D
 	    //cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro[2] << " V: " << -(kv*pid_v) << endl;
 	    //} 	
@@ -234,7 +234,7 @@ int main(void) {
     cout << "PWM: " << pwm_write << " DT: " << DT << endl;
 
 	
-    /* --- UART TO MSP --- */
+    /* --------------- UART TO MSP --------------- */
 	// {Start, message, checksum}
 	
     unsigned char msp_data[4];
@@ -242,10 +242,10 @@ int main(void) {
     msp_data[0] = START_BYTE;
 	// First and second message bytes (L_CTRL, R_CTRL)
     if(pwm_write > 0){
-		msp_data[1] = (127 - pwm_write); 			
+		msp_data[1] = (126 - pwm_write); 			
 		msp_data[1] &= ~0x80;						// Clear PWM_DIR bit
 		
-		msp_data[2] = (127 - pwm_write); 			
+		msp_data[2] = (126 - pwm_write); 			
 		msp_data[2] &= ~0x80;						// Clear PWM_DIR bit
     }else{
 		msp_data[1] = -(126 - pwm_write);
@@ -254,24 +254,21 @@ int main(void) {
 		msp_data[2] = -(126 - pwm_write);
 		msp_data[2] |= 0x80;						// Set PWM_DIR bit
     }
-
-	// Checksum byte
+    // Checksum byte
     msp_data[3] = ~(msp_data[1] + msp_data[2]);
-	
-    //msp_data[1] = 0; //null char to terminate char string				// Null character needed?
-    
-    res = write(msp_fs, msp_data, sizeof(msp_data) - 1);				// sizeof(msp_data) - 1 ??
+     
+    res = write(msp_fs, msp_data, sizeof(msp_data));			
     //cout << res << " Bytes written to MSP" << endl;
     
     // Update 'old' values for next loop
     //if(SMA_GYRO_EN){
     //    gyro_old = gyro_z_SMA;
     //}else{
-	gyro_old = gyro[2];
+    gyro_old = gyro[2];
 	//}
     pid_old = pwm;
     CFangle_old = CFangle;
-   // usleep(15000);
+    usleep(15000);
   }
   /*
   #ifdef DATALOG_ON
