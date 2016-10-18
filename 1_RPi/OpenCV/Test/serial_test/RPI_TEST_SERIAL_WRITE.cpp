@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 
 #define BAUDRATE B9600
-#define DEVICE "/dev/rfcomm"
+#define DEVICE "/dev/rfcomm0"
 #define FALSE 0
 #define TRUE 1
 #define START_BYTE 0x7F
@@ -35,7 +35,7 @@ int main(void)
 
   tcflush(fd, TCIFLUSH);
   tcsetattr(fd, TCSANOW, &newtio);
-  unsigned char data[8];
+  unsigned char data[9];
   unsigned char types[5] = {0x01, 0x02, 0x04, 0x08, 0xFF};
     
   int num = 0;
@@ -55,8 +55,11 @@ int main(void)
   	data[7] = 0x00;
   	
   	data[2] = ~(data[3] + data[4] + data[5] + data[6] + data[7]);
-  	
+
+	data[8] = '\r';
+	
   	num = write(fd,data,sizeof(data));
+	printf("TYPE: %x , CS: %x ", data[3], data[2]);
   	cout << "Data Sent: " << num << " bytes" << endl;
   	i++;
   	if(i>4) i = 0;
