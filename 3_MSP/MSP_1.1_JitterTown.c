@@ -12,10 +12,11 @@
 /* UART variables */
 unsigned char *UART_PRxData;
 unsigned char UART_RXByteCtr;
-volatile unsigned char UART_RxBuffer[6];
+volatile unsigned char UART_RxBuffer[1];
 unsigned char UART_char;
 const char string[] = {0x6C, 0x72, 0x0D, 0};
 unsigned int i = 0;
+const int fastDecay = 0;
 
 /* UART function prototypes */
 void UART_Setup(void);
@@ -154,7 +155,7 @@ void driveMotors(unsigned char L_CTRL, unsigned char R_CTRL)
 			P2SEL |= BIT5; 					//   PWM for RIN2
 		}
 	}else{
-	//	  Fast decay:
+	//	  Slow decay:
 	//		  1		  	PWM		Forward
 	//		  PWM	  	1		Reverse
 		if(L_CTRL&MOTOR_FWD){				// LEFT motor forward:
