@@ -67,10 +67,7 @@ void main(void)
 		//P1OUT &= ~BIT3;
 		//unsigned char UART_rxbyte = 0x00;
 		while(UART_rxbyte != START_BYTE){UART_Receive(1, &UART_rxbyte);}	// Wait for a start byte
-
-		P1OUT ^= BIT0;
 		UART_Receive(MESSAGE_LEN, (unsigned char*)UART_message);			// Receive next 3 bytes, corresponding to message length
-
 
 		/*  UART_message[0] = L_CTRL				*
 		 *  UART_message[1] = R_CTRL				*
@@ -78,6 +75,7 @@ void main(void)
 
 		if(checkSum(UART_message, MESSAGE_LEN-1) == UART_message[MESSAGE_LEN-1])	// Compute & check message checksum
 		{
+			P1OUT ^= BIT0;
 			driveMotors(UART_message[1], UART_message[2]);
 		} // else message checksum error
 	}
@@ -102,7 +100,8 @@ void UART_Receive(uint8_t num_RX_Bytes, unsigned char* destinationPtr)
 	UART_RXByteCtr = num_RX_Bytes;					// Store # bytes to be received in counter
 	__bis_SR_register(CPUOFF + GIE);    			// Enter LPM0 w/ interrupts
 													// Remain in LPM0 until all data is received*/
-}
+
++}
 
 /* UART RX interrupt servicing */
 #pragma vector=USCIAB0RX_VECTOR
