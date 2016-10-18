@@ -25,7 +25,7 @@
 #define SMA_TILT_EN 0
 #define SMA_PERIOD 1
 #define SMA_PERIOD_TILT 1
-#define ANGLE_OFFSET -6
+#define ANGLE_OFFSET  0
 #define PWM_LIMIT 2
 #define DEADBAND_LIMIT 0.5
 
@@ -43,7 +43,7 @@ int pwm, pwm_write;
 /* ---- PID gain values ---- 
 --------------------------*/
 //float kp = 30, ki = 0, kd = 1.25, kv = 0;
-float kp = 40, ki = 0.001, kd = 1, kv = 0;
+float kp = 25, ki = 0, kd = 0.3, kv = 0;
 /*------------------------*/
 
 // SMA variables
@@ -216,8 +216,8 @@ int main(void) {
 	    //cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro_z_SMA << " V: " << -(kv*pid_v) << endl;
     //  }else{
             // Use gyro[2] for d term
-	   // pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro[2]) - (kv*pid_v);
-            pwm = 50;
+	    pwm = -(kp*(CFangle+ANGLE_OFFSET)) - (ki*pid_int) - (kd*gyro[2]) - (kv*pid_v);
+          
 	    // Print P, I, D
 	    //cout << "P: " << -kp*(CFangle+ANGLE_OFFSET) << " I: " << -ki*pid_int << " D: " << -kd*gyro[2] << " V: " << -(kv*pid_v) << endl;
 	    //} 	
@@ -231,12 +231,30 @@ int main(void) {
     if (pwm_write < -126) pwm_write = -126;
 
     // Print pwm
-    cout << "PWM: " << pwm_write << " DT: " << DT << endl;
+   // cout << "PWM: " << pwm_write << " DT: " << DT << endl;
 
 	
     /* --------------- UART TO MSP --------------- */
+    unsigned char msp_data[2];
+    int pwm_sent, dir_sent;
+
+    if(pwm_write >0){
+       msp_data[0] = (126 - pwm_write);
+	pwm_sent = msp_data[0];
+       msp_data[0] &= ~0x80;
+	dir_sent = 0;
+   } else{
+       msp_data[0] = (126 +  pwm_write);
+	pwm_sent = msp_data[0];
+       msp_data[0] |= 0x80;
+	dir_sent = 1;
+     }
+
+     cout << "pwm_write: " <<  pwm_write << "    msp_data[0]: " << pwm_sent << "    direction: " << dir_sent << endl;
+     msp_data[1] = 0;
+
 	// {Start, message, checksum}
-	
+/*	
     unsigned char msp_data[4];
 	// Start byte
     msp_data[0] = START_BYTE;
@@ -256,8 +274,8 @@ int main(void) {
     }
     // Checksum byte
     msp_data[3] = ~(msp_data[1] + msp_data[2]);
-     
-    res = write(msp_fs, msp_data, sizeof(msp_data));			
+  */   
+    res = write(msp_fs, msp_data, (sizeof(msp_data)-1));			
     //cout << res << " Bytes written to MSP" << endl;
     
     // Update 'old' values for next loop
@@ -268,7 +286,7 @@ int main(void) {
 	//}
     pid_old = pwm;
     CFangle_old = CFangle;
-    usleep(15000);
+   // usleep(15000);
   }
   /*
   #ifdef DATALOG_ON
