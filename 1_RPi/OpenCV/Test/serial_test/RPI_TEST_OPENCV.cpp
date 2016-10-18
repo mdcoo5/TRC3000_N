@@ -357,12 +357,6 @@ int num = 0;
  unsigned char data[9];
  data[0] = START_BYTE;
  data[1] = 1; //MSG length
-  
- if( sqrt((objects[0][0] - posX)^2 + (objects[0][1] - posY)^2) < 10){
-   cout << "Stop" << endl;
-   data[3] = 0xFF; // stop data type
-   continue;
- }
  
  	if( heading > 5 )
    	{
@@ -382,6 +376,11 @@ int num = 0;
      	cout << "Turn Right" << endl;
      	data[3] = 0x08; // Right data type
   	 }
+  	 
+  	if( sqrt((objects[0][0] - posX)^2 + (objects[0][1] - posY)^2) < 10){
+   		cout << "Stop" << endl;
+   		data[3] = 0xFF; // stop data type
+ 	}
   	 data[4] = 0x00;
   	 data[5] = 0x00;
   	 data[6] = 0x00;
