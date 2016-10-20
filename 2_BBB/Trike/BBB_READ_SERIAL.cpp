@@ -28,7 +28,8 @@ volatile uint8_t msg_len;
 volatile uint8_t checksum;
 volatile uint8_t type;
 
-int pwm_write = 50;
+int pwm_write = 25;
+int turn = 25;
 
 int main(void)
 {
@@ -66,6 +67,7 @@ int main(void)
   if (fw < 0) { cout << "Error opening write device" << endl; return -1; }
   else cout << "Write device opened succesfully" << endl;
 
+  newtio.c_cflag = B115200 | CRTSCTS | CS8 | CLOCAL | CREAD;
   tcgetattr(fw, &oldtio_w);
   tcflush(fw, TCIFLUSH);
   tcsetattr(fw, TCSANOW, &newtio);
@@ -99,50 +101,50 @@ int main(void)
 	  			 
 	  			 // using data[4 - 7] do some wizardry with the PWM values to modify movement?
 	  			 
-	  			 if(checksum == ~(buf[3] + buf[4] + buf[5] + buf[6] + buf[7]){
+	  			 if(checksum == (unsigned char)~(buf[3] + buf[4] + buf[5] + buf[6] + buf[7])){
 	  			 	switch(type){
-	  			 		case 0x01:
-	  			 			//Drive forward
-	  			 			msp_data[1] = (126 - pwm_write);
-							msp_data[1] &= ~0x80;						// Clear PWM_DIR bit
-							msp_data[2] = (126 - pwm_write); 			
-							msp_data[2] &= ~0x80;						// Clear PWM_DIR bit
-							break;
-	  			 		case 0x02:
-	  			 		//Drive reverse
-	  			 			msp_data[1] = (126 - pwm_write);
-							msp_data[1] |= 0x80;						// Set PWM_DIR bit
-							msp_data[2] = (126 - pwm_write);
-							msp_data[2] |= 0x80;						// Set PWM_DIR bit
-	  			 			break;
-	  			 		case 0x04;
+					case 0x01:
+					  //Drive forward
+					  msp_data[1] = (126 - pwm_write);
+					  msp_data[1] |= 0x80;						// Clear PWM_DIR bit
+					  msp_data[2] = (126 - pwm_write); 			
+					  msp_data[2] |= 0x80;						// Clear PWM_DIR bit
+					  break;
+					case 0x02:
+					  //Drive reverse
+					  msp_data[1] = (126 - pwm_write);
+					  msp_data[1] &= ~0x80;						// Set PWM_DIR bit
+					  msp_data[2] = (126 - pwm_write);
+					  msp_data[2] &= ~0x80;						// Set PWM_DIR bit
+					  break;
+					case 0x04:
 	  			 			//turn left
-	  			 			msp_data[1] = (126 - pwm_write);
-							msp_data[1] &= ~0x80;						// Set PWM_DIR bit
-							msp_data[2] = (126 - pwm_write); 			
-							msp_data[2] |= 0x80;						// Clear PWM_DIR bit
+					  msp_data[1] = (126 - pwm_write);
+					  msp_data[1] |= 0x80;						// Set PWM_DIR bit
+					  msp_data[2] = (126 - (pwm_write + turn)); 			
+					  msp_data[2] |= 0x80;						// Clear PWM_DIR bit
 	  			 			break;
-	  			 		case 0x08;
+					case 0x08:
 	  			 			// turn right
-	  			 			msp_data[1] = (126 - pwm_write);
-							msp_data[1] |= 0x80;						// Set PWM_DIR bit
-							msp_data[2] = (126 - pwm_write); 			
-							msp_data[2] &= ~0x80;						// Clear PWM_DIR bit
+					  msp_data[1] = (126 - (pwm_write + turn));
+					  msp_data[1] |= 0x80;						// Set PWM_DIR bit
+					  msp_data[2] = (126 - pwm_write); 			
+					  msp_data[2] |= 0x80;						// Clear PWM_DIR bit
 	  			 			break;
-	  			 		case 0xFF;
-	  			 			//stop
-	  			 			msp_data[1] = (126);
-							msp_data[1] |= 0x80;						// Set PWM_DIR bit
-							msp_data[2] = (126); 			
-							msp_data[2] |= 0x80;						// Set PWM_DIR bit
-	  			 			break;
+					case 0xFF:
+					  //stop
+					  msp_data[1] = (126);
+					  msp_data[1] |= 0x80;						// Set PWM_DIR bit
+					  msp_data[2] = (126); 			
+					  msp_data[2] |= 0x80;						// Set PWM_DIR bit
+					  break;
 	  			 	}
-	  			 	msp_data[3] = ~(msp_data[1] + msp_data[2]); // MSP checksum
+	  			 	msp_data[3] = ~(msp_data[1] + msp_data[2] + 0x7F); // MSP checksum
 	  			 	
 	  			 	// write data to MSP
 	  			 	int res;
-	  			 	res = write(msp_fs, msp_data, sizeof(msp_data));
-	  			 }
+	  			 	res = write(fw, msp_data, sizeof(msp_data));
+				 }
 	  		}
 	  		
 	  		/*

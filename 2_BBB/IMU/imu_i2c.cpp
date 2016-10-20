@@ -24,9 +24,9 @@
 #define SMA_GYRO_EN 1
 #define SMA_TILT_EN 1
 #define SMA_PERIOD  10
-#define SMA_PERIOD_TILT 15
-#define ANGLE_OFFSET -5
-#define PWM_LIMIT 5
+#define SMA_PERIOD_TILT  5
+#define ANGLE_OFFSET -7
+#define PWM_LIMIT 0
 #define DEADBAND_LIMIT 0.5
 
 using namespace std;
@@ -42,7 +42,7 @@ int pwm, pwm_write;
 
 /* ---- PID gain values ---- 
 --------------------------*/
-float kp = 30, ki = 0, kd = 0.5, kv = 0;
+float kp = 21, ki = 0, kd = 1.0, kv = 0;
 /*------------------------*/
 
 // SMA variables
