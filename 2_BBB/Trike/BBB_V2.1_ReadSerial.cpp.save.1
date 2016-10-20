@@ -28,9 +28,9 @@ volatile uint8_t msg_len;
 volatile uint8_t checksum;
 volatile uint8_t type;
 
-int pwm_write = 20;
+int pwm_write = 25;
 int turn = 15;
-int sharpturn = 20;
+int sharpturn = 15;
 
 int main(void)
 {
@@ -120,14 +120,14 @@ int main(void)
 					  break;
 					case 0x04:
 	  			 	  //turn left
-					  msp_data[1] = (126 - pwm_write);
+					  msp_data[1] = (126 -);
 					  msp_data[1] |= 0x80;						// Set PWM_DIR bit
 					  msp_data[2] = (126 - (pwm_write + turn)); 			
 					  msp_data[2] |= 0x80;						// Clear PWM_DIR bit
 	  			          break;
 					case 0x05:
  					  // sharp turn left
-					  msp_data[1] = (126 -0);// sharpturn);
+					  msp_data[1] = (126 - sharpturn);
 					  msp_data[1] &= ~0x80;    // right wheel backwards
 					  msp_data[2] = (126 - sharpturn);
 					  msp_data[2] |= 0x80;
@@ -143,7 +143,7 @@ int main(void)
 					  // sharp turn right
 					  msp_data[1] = (126 - sharpturn);
 					  msp_data[1] |= 0x80;
-					  msp_data[2] = (126 -0);// sharpturn);
+					  msp_data[2] = (126 - sharpturn);
 					  msp_data[2] &= ~0x80;
 					case 0xFF:
 					  //stop
