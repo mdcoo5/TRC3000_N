@@ -31,9 +31,19 @@ read and processed by BBB.
 #define TRUE 1
 #define START_BYTE 0x7F
 #define ANGLE_SMA 1
-#define ANG_SMA_PERIOD 5
+#define ANG_SMA_PERIOD 2
+
 
 float sma[ANG_SMA_PERIOD];
+int sma_ptr = 0;
+
+int pt1[2];
+int pt2[2];
+int pt3[2];
+int pt4[2];
+int pt5[2];
+int ptStart[2];
+int ptStop[2];
 
 using namespace cv;
 using namespace std;
@@ -49,12 +59,15 @@ int iLowH, iHighH;
 int iLowS, iHighS;
 int iLowV, iHighV;
 
+float tilt;
 
 //Location of cones
 int cones[20][2];
 //Location of objects
 int objects[20][2]; // [no.][x,y]
 
+int state = 1;
+int nextpt = 0;
 
 int main(int argc, char* argv[])
 {
@@ -67,8 +80,7 @@ int main(int argc, char* argv[])
       cout << "Cannot open the camera" << endl;
       return -1;
     }
-
-  
+/*      
   fd = open(DEVICE, O_RDWR | O_NOCTTY | O_NDELAY );
   if (fd < 0) { cout << "Error opening device" << endl; return -1; }
   else cout << "Device opened successfully" << endl;
@@ -82,7 +94,7 @@ int main(int argc, char* argv[])
   newtio.c_lflag = ICANON;
   tcflush(fd, TCIFLUSH);
   tcsetattr(fd, TCSANOW, &newtio);
-  
+  */
   
   // Initial opening and read of threshold value file
   std::fstream fs;
@@ -113,7 +125,9 @@ int main(int argc, char* argv[])
   //Prompting of user for mode control
   cout << "Options:" << endl;
   cout << "1 - Set threshold values" << endl;
-  cout << "2 - use existing threshold values" << endl << endl;;
+  cout << "2 - use existing threshold values" << endl;
+  cout << "3 - All windows" << endl;
+  cout << "4 - Competition Settings, only initial contours" << endl << endl;
   int choice;
   cout << "choice :";
   cin >> choice;
@@ -156,14 +170,14 @@ int main(int argc, char* argv[])
   bool bSuccess;
 
   // Initialiation
-  for(int k=0; k< 10; k++){
+  for(int k=0; k< 30; k++){
     bSuccess = cap.read(imgOriginal);
     waitKey(30);
   }
   
   // Read Image
   bSuccess = cap.read(imgOriginal);
-
+    
   // Get size of image
   int rows = imgOriginal.rows;
   int cols = imgOriginal.cols;
@@ -182,13 +196,13 @@ int main(int argc, char* argv[])
   if(green){
     cout << "Green" << endl;
     // Processing to find GREEN cones
-    inRange( imgHSV, Scalar(0, 111, 162), Scalar(179, 255, 255), imgThreshold);
+    inRange( imgHSV, Scalar(40, 111, 162), Scalar(80, 255, 255), imgThreshold);
 
     // Noise Reduction
     erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
-    dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+    dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(10,10)));
 
-    dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+    dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(10,10)));
     erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
 
     // Find Contours of Image
@@ -206,28 +220,25 @@ int main(int argc, char* argv[])
       {
 	Scalar color( rand()&255, rand()&255, rand()&255);
 	drawContours( dst, contours, idx, color, 2, 8, heirarchy);
-	Moments cMoments = moments(contours[idx]);
+	Moments cMoments = moments(contours[idx]);	
 	cones[idx][0] = (int)(cMoments.m10/cMoments.m00);
 	cones[idx][1] = (int)(cMoments.m01/cMoments.m00);
 	circle(dst, Point(cones[idx][0],cones[idx][1]), 3, Scalar(0, 255, 0), -1);
 	count ++;
+	cout << "idx: " << idx << " x: " << cones[idx][0] << " y: " << cones[idx][1] << endl;
       }
     cout << "contours: " << count << endl;
-    for(int k=0;k <3; k++)
-      {
-	cout << "x: " << cones[k][0] << " y: " << cones[k][1] << endl;
-      }
   }
   if(orange){
     cout << "Orange" << endl;
     //Processing to find ORANGE Objects
-    inRange(imgHSV, Scalar(0, 0 , 216), Scalar(69, 255, 255), imgThreshold);
+    inRange(imgHSV, Scalar(0, 0 , 200), Scalar(40, 255, 255), imgThreshold);
     
     // Noise Reduction
-    erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
-    dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+    erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(10,10)));
+    dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(10,10)));
     
-    dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
+    dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(10,10)));
     erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(5,5)));
     
     // Find Contours of Image
@@ -243,22 +254,54 @@ int main(int argc, char* argv[])
 	Scalar color( rand()&255, rand()&255, rand()&255);
 	drawContours( dst, contours, idx, color, 2, 8, heirarchy);
 	Moments cMoments = moments(contours[idx]);
-	objects[idx][0] = (int)(cMoments.m10/cMoments.m00);
-	objects[idx][1] = (int)(cMoments.m01/cMoments.m00);
+	int orange_x = (int)(cMoments.m10/cMoments.m00);
+	int orange_y = (int)(cMoments.m01/cMoments.m00);	
+	objects[idx][0] = orange_x;
+	objects[idx][1] = orange_y;
 	circle(dst, Point(objects[idx][0],objects[idx][1]), 3, Scalar(0, 255, 0), -1);
 	count ++;
+	cout << "idx: " << idx << " x: " << objects[idx][0] << " y: " << objects[idx][1] << endl;
       }
     cout << "orange contours: " << count << endl;
-    for(int k=0;k <3; k++)
-      {
-	cout << "x: " << objects[k][0] << " y: " << objects[k][1] << endl;
-      }
   }
   namedWindow( "Contours" , 1);
   imshow("Contours", dst);
   
   waitKey(30);
+
+  pt1[0] = (cones[0][0] + cones[1][0] + cones[2][0])/3 - 50;
+  pt1[1] = (cones[1][1] + cones[2][1])/2;
+  pt2[0] = (cones[0][0] + cones[1][0] + cones[2][0])/3;
+  pt2[1] = (cones[1][1] + cones[2][1])/2;
+  pt3[0] = (cones[0][0] + cones[1][0] + cones[2][0])/3 + 50;
+  pt3[1] = (cones[1][1] + cones[2][1])/2;
   
+  int ramp[2];
+  int Start[2];
+  int Stop[2];
+  
+  if(objects[0][0] < 200){Start[0] = objects[0][0]; Start[1] = objects[0][1];}
+  if(objects[1][0] < 200){Start[0] = objects[1][0]; Start[1] = objects[1][1];}
+  if(objects[2][0] < 200){Start[0] = objects[2][0]; Start[1] = objects[2][1];}
+
+  ptStart[0] = Start[0];
+  ptStart[1] = Start[1];
+
+  if(objects[0][0] > 400){Stop[0] = objects[0][0]; Stop[1] = objects[0][1];}
+  if(objects[1][0] > 400){Stop[0] = objects[1][0]; Stop[1] = objects[1][1];}
+  if(objects[2][0] > 400){Stop[0] = objects[2][0]; Stop[1] = objects[2][1];}
+
+  ptStop[0] = Stop[0];
+  ptStop[1] = Stop[1];
+  
+  if(objects[0][0] > 200 && objects[0][0] < 400) {ramp[0] = objects[0][0]; ramp[1] = objects[0][1];}
+  else if(objects[1][0] > 200 && objects[1][0] < 400) {ramp[0] = objects[1][0]; ramp[1] = objects[1][1];}
+  else if(objects[2][0] > 200 && objects[2][0] < 400) {ramp[0] = objects[2][0]; ramp[1] = objects[2][1];}
+  
+  pt4[0] = ramp[0] - 60;
+  pt4[1] = ramp[1];
+  pt5[0] = ramp[0] + 60;
+  pt5[1] = ramp[1];  
   while(true)
     {
       // imgOriginal is captured from camera
@@ -278,9 +321,9 @@ int main(int argc, char* argv[])
 
       // Noise reduction via open/close
       erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(3,3)));
-      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(3,3)));
+      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(6,6)));
 
-      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(3,3)));
+      dilate(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(6,6)));
       erode(imgThreshold, imgThreshold, getStructuringElement(MORPH_ELLIPSE, Size(3,3)));
 
       // Moments function to find centre of blob
@@ -313,24 +356,113 @@ int main(int argc, char* argv[])
 	           circle(imgFinal, Point(posX, posY), 5, Scalar(0, 0, 255), -1, 8);
 	          }
 
-      // Draw line from centre of robot to final marker
-      line(imgFinal, Point(posX, posY), Point(objects[0][0], objects[0][1]), Scalar(0, 255, 0), 1, 8);
-      float heading = atan2(objects[0][0] - posX, objects[0][1] - posY);
+      // Draw line from centre of robot to point
+      int point[2];
+	switch(state){
+	case 1:
+	  point[0] = pt1[0];
+	  point[1] = pt1[1];
+	  break;
+	case 2:
+	  point[0] = pt2[0];
+	  point[1] = pt2[1];
+	case 3:
+	  point[0] = pt3[0];
+	  point[1] = pt3[1];
+	  break;
+	case 4:
+	  point[0] = pt4[0];
+	  point[1] = pt4[1];
+	  break;
+	case 5:
+	  point[0] = pt5[0];
+	  point[1] = pt5[1];
+	  break;
+	case 6:
+	  point[0] = ptStop[0];
+	  point[1] = ptStop[1];
+	  break;
+	case 7:
+	  point[0] = pt5[0];
+	  point[1] = pt5[1];
+ 	  break;
+	case 8:
+	  point[0] = pt4[0];
+	  point[1] = pt4[1];
+	  break;
+ 	case 9:
+	  point[0] = pt3[0];
+ 	  point[1] = pt3[1];
+	  break;
+	case 10:
+	  point[0] = pt1[0];
+	  point[1] = pt1[1];
+	  break;
+	case 11:
+	  point[0] = ptStart[0];
+	  point[1] = ptStart[1];
+	  break;
+	}
+	line(imgFinal, Point(posX, posY), Point(point[0], point[1]), Scalar(0, 255, 0), 1, 8);
+	float heading = atan2(point[0] - posX, point[1] - posY);
       
       // Tilt Calculation
-      float tilt = -0.5 * atan2(2.0*((dM11/dArea)-posX*posY),((dM20/dArea)-(posX*posX))-((dM02/dArea)-(posY*posY)));
+      //float tilt = -0.5 * atan2(2.0*((dM11/dArea)-posX*posY),((dM20/dArea)-(posX*posX))-((dM02/dArea)-(posY*posY)));
+      // find blue contours
+      vector<vector<Point> > bcontours;
+      vector<Vec4i> bheirarchy;
+      int bcentres[2][2];
+      findContours(imgThreshold, bcontours, bheirarchy, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
+
+      for(int l=0; l < bcontours.size(); l++){
+	Moments bmoments = moments(bcontours[l]);
+	bcentres[l][0] = (int) bmoments.m10/bmoments.m00;
+	bcentres[l][1] = (int) bmoments.m01/bmoments.m00;
+	//drawContours(imgFinal, bcontours, 0, Scalar(0,255,0), 2, 8, bheirarchy);
+	//drawContours(imgFinal, bcontours, 1, Scalar(255, 0,0), 2, 8, bheirarchy);
+      }
+      if(bcentres[1][0] > bcentres[0][0]){
+	tilt = -atan2(bcentres[1][1] - bcentres[0][1], bcentres[1][0] - bcentres[0][0]);
+      } else {
+	tilt = atan2(bcentres[1][1] - bcentres[0][1], bcentres[0][0] - bcentres[1][0]);
+      }
+      cout << "0: x: " << bcentres[0][0] << " y: " << bcentres[0][1];
+      cout << " 1: x: " << bcentres[1][0] << " y: " << bcentres[1][1];
+
+      sma[sma_ptr] = tilt;
+      sma_ptr++;
+      if(sma_ptr > (ANG_SMA_PERIOD - 1)) sma_ptr = 0;
+
+      tilt = (sma[0] + sma[1])/ANG_SMA_PERIOD; //change for different sma values
+	 
       int length = 150;
       line(imgFinal, Point(posX, posY), Point((int) posX + length*cos(tilt), (int)posY - length*sin(tilt)), Scalar(0, 0, 255), 1, 8);
 
+      // if state greater than turning point, add Pi
       heading = heading - tilt - (M_PI/2);
+      if(state > 4) heading += M_PI;
       heading = (heading*180.0)/M_PI;
       tilt = (tilt*180.0)/M_PI;
 
-      cout << "tilt: " << tilt;
-      cout << " difference: " << heading << endl;
+      cout << " tilt: " << tilt;
+      cout << " difference: " << heading;
+      
+      circle(imgFinal, Point(pt1[0], pt1[1]), 5, Scalar(255, 0, 0), -1, 8); // 1st point
+      circle(imgFinal, Point(pt2[0], pt2[1]), 5, Scalar(255, 0, 0), -1, 8); // 0.5st point
+      circle(imgFinal, Point(pt3[0], pt3[1]), 5, Scalar(255, 0, 0), -1, 8); // 1.5st point
+
+      circle(imgFinal,Point(200,219), 5, Scalar(255, 0, 255), -1, 8);
+      circle(imgFinal, Point(400, 219), 5,Scalar(255, 0, 255), -1, 8);
+      
+      circle(imgFinal, Point(pt4[0], pt4[1]), 5, Scalar(0,0,255), -1, 8); // 2nd point
+      circle(imgFinal, Point(pt5[0], pt5[1]), 5, Scalar(0,0,255), -1, 8); // 3rd Point
+
+      circle(imgFinal, Point(ptStart[0], ptStart[1]), 5, Scalar(0, 0,255), -1, 8);
+      circle(imgFinal, Point(ptStop[0], ptStop[1]), 5, Scalar(0,0,255), -1, 8);
 
       if(out_thrs == 1) imshow("Thresholded Image",imgFinal);
       if(out_orig == 1) imshow("Original", imgOriginal);
+      cout << "  State: " << state << "\t";
 
       if(waitKey(30) == 27)
 	{
@@ -358,42 +490,47 @@ int num = 0;
  data[0] = START_BYTE;
  data[1] = 1; //MSG length
  
- 	if( heading > 5 )
+ 	if( heading > 10 )
    	{
      	//num = write(fd,left,sizeof(left)-1);
-     	cout << "Turn Left" << endl;
+     	cout << " Turn Left" << endl;
      	data[3] = 0x04; // Left data type
    	}
- 	else if(heading < 5 && heading > -5)
+ 	else if(heading < 10 && heading > -10)
    	{
      	//num = write(fd,right,sizeof(right)-1);
-     	cout << "Go Straight" << endl;
+     	cout << " Go Straight" << endl;
      	data[3] = 0x01; //forward data type
    	}
  	else
    	{
      	//num = write(fd, ....
-     	cout << "Turn Right" << endl;
+     	cout << " Turn Right" << endl;
      	data[3] = 0x08; // Right data type
   	 }
   	 
-  	if( sqrt((objects[0][0] - posX)^2 + (objects[0][1] - posY)^2) < 10){
+  	if( sqrt((point[0] - posX)^2 + (point[1] - posY)^2) < 5){
    		cout << "Stop" << endl;
    		data[3] = 0xFF; // stop data type
+		if(nextpt == 3){
+		  state++;
+		  nextpt = 0;
+		}
+		else nextpt++;
  	}
   	 data[4] = 0x00;
   	 data[5] = 0x00;
   	 data[6] = 0x00;
   	 data[7] = 0x00;
   	 
-  	 data[2] = ~(data[3] + data[4] + data[5] + data[6] + data[7]);
+  	 data[2] = (unsigned char) ~(data[3] + data[4] + data[5] + data[6] + data[7]);
   	 
-  	 data[9] = '\r'; //return byte for BBB handling
-  	 num = write(fd, data, sizeof(data));
+  	 data[8] = '\r'; //return byte for BBB handling
+//	 num = write(fd, data, sizeof(data));
 } // end while
     
-  	tcsetattr(fd, TCSANOW, &oldtio);
-  	close(fd);
+  //tcsetattr(fd, TCSANOW, &oldtio);
+  //close(fd);
   	
   return 0;
 } // end main
