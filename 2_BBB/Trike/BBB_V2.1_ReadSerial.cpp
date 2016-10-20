@@ -159,6 +159,16 @@ int main(void)
 	  			 	int res;
 	  			 	res = write(fw, msp_data, sizeof(msp_data));
 					cout << "received: " << type << endl;
+					 
+					 // Sleep for a bit
+					 usleep(250000);
+					 // Stop (for RPI to catch up)
+					 msp_data[1] = (126);
+					 msp_data[1] |= 0x80;						// Set PWM_DIR bit
+					 msp_data[2] = (126); 			
+					 msp_data[2] |= 0x80;						// Set PWM_DIR bit
+					 msp_data[3] = ~(msp_data[1] + msp_data[2] + 0x7F); // MSP checksum
+					 res = write(fw, msp_data, sizeof(msp_data));
 				 }
 	  		}
 	  		
