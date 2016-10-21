@@ -1,0 +1,201 @@
+/*
+ * Experiment 1 - FAST DECAY
+ * Code for the Beaglebone Black to read incoming serial bytes from the RPi and issue
+ * corresponding commands to the MSP to drive the robot about
+ */
+
+#include <stdio.h>
+#include <stdint.h>
+#include <iostream>
+#include <unistd.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <string.h>
+#include <sys/types.h>
+#include <signal.h>
+
+#define BAUDRATE B9600
+#define DEVICE "/dev/ttyO1"
+#define DEVICE_W "/dev/ttyO2"
+#define FALSE 0
+#define TRUE 1
+#define START_BYTE 0x7F
+
+using namespace std;
+void signal_handler_IO (int status);
+int wait_flag=TRUE;
+
+volatile uint8_t msg_len;
+volatile uint8_t checksum;
+volatile uint8_t type;
+
+int pwm_write = 30;
+int turn = 20;
+int sharpturn = 20;
+
+int main(void)
+{
+  int fd, fw, res;
+  struct termios oldtio, oldtio_w, newtio;
+  struct sigaction saio;
+  unsigned char buf[255];
+  int received;
+
+  //open modem device
+  fd = open(DEVICE, O_RDWR | O_NOCTTY | O_NDELAY );
+  if (fd < 0) { cout << "Error opening device" << endl; return -1; }
+  else cout << "Device opened successfully" << endl;
+
+  saio.sa_handler = signal_handler_IO;
+  sigemptyset(&saio.sa_mask);
+  saio.sa_flags = 0;
+  saio.sa_restorer = NULL;
+  sigaction(SIGIO,&saio,NULL);
+
+  fcntl(fd, F_SETOWN, getpid());
+  fcntl(fd, F_SETFL, FASYNC);
+
+  tcgetattr(fd, &oldtio); // save current serial port settings
+  bzero(&newtio, sizeof(newtio)); // clear struct to recieve new settings
+
+  newtio.c_cflag = BAUDRATE | CRTSCTS | CS8 | CLOCAL | CREAD;
+  newtio.c_iflag = IGNPAR | ICRNL;
+  newtio.c_oflag = 0;
+  newtio.c_lflag = ICANON;
+
+  tcflush(fd, TCIFLUSH);
+  tcsetattr(fd, TCSANOW, &newtio);
+
+  fw = open(DEVICE_W, O_RDWR | O_NOCTTY | O_NDELAY );
+  if (fw < 0) { cout << "Error opening write device" << endl; return -1; }
+  else cout << "Write device opened succesfully" << endl;
+
+  newtio.c_cflag = B115200 | CRTSCTS | CS8 | CLOCAL | CREAD;
+  tcgetattr(fw, &oldtio_w);
+  tcflush(fw, TCIFLUSH);
+  tcsetattr(fw, TCSANOW, &newtio);
+
+  while(1)
+    {
+      usleep(1000);
+      //printf(".\n");
+      if(wait_flag==FALSE)
+		{
+			unsigned char msp_data[4];
+			msp_data[0] = START_BYTE;
+	  		res = read(fd, buf, 255);
+	  		buf[res] = 0;
+	  		if(buf[0] == 0x7F){
+	  			/*
+	  			 * Incoming data has form:
+	  			 * [0] - START BYTE
+	  			 * [1] - MSG LENGTH
+	  			 * [2] - CHECKSUM
+	  			 * -------- MSG -------
+	  			 * [3] - TYPE
+	  			 * [4] - DATA[0]
+	  			 * [5] - DATA[1]
+	  			 * [6] - DATA[2]
+	  			 * [7] - DATA[3]
+	  			 */
+	  			 msg_len = buf[1];
+	  			 checksum = buf[2];
+	  			 type = buf[3];
+	  			 
+	  			 // using data[4 - 7] do some wizardry with the PWM values to modify movement?
+	  			 
+	  			 if(checksum == (unsigned char)~(buf[3] + buf[4] + buf[5] + buf[6] + buf[7])){
+	  			 	switch(type){
+					case 0x01:
+					  //Drive forward
+					  msp_data[1] = (126 - pwm_write);
+					  msp_data[1] |= 0x80;						// Clear PWM_DIR bit
+					  msp_data[2] = (126 - pwm_write); 			
+					  msp_data[2] |= 0x80;						// Clear PWM_DIR bit
+					  break;
+					case 0x02:
+					  //Drive reverse
+					  msp_data[1] = (126 - pwm_write);
+					  msp_data[1] &= ~0x80;						// Set PWM_DIR bit
+					  msp_data[2] = (126 - pwm_write);
+					  msp_data[2] &= ~0x80;						// Set PWM_DIR bit
+					  break;
+					case 0x04:
+	  			 	  //turn left
+					  msp_data[1] = (126 - pwm_write);
+					  msp_data[1] |= 0x80;						// Set PWM_DIR bit
+					  msp_data[2] = (126 - (pwm_write + turn)); 			
+					  msp_data[2] |= 0x80;						// Clear PWM_DIR bit
+	  			          break;
+					case 0x05:
+ 					  //  FAST FOWARD
+					  msp_data[1] = (126 - (pwm_write + 30));// sharpturn);
+					  msp_data[1] |= 0x80;    // right wheel backwards
+					  msp_data[2] = (126 - (pwm_write + 30));
+					  msp_data[2] |= 0x80;
+					  break;
+					case 0x08:
+	  			 	  // turn right
+					  msp_data[1] = (126 - (pwm_write + turn));
+					  msp_data[1] |= 0x80;						// Set PWM_DIR bit
+					  msp_data[2] = (126 - pwm_write); 			
+					  msp_data[2] |= 0x80;						// Clear PWM_DIR bit
+	  			 	  break;
+					case 0x09:
+					  // sharp turn right
+					  msp_data[1] = (126 - sharpturn);
+					  msp_data[1] |= 0x80;
+					  msp_data[2] = (126 -0);// sharpturn);
+					  msp_data[2] &= ~0x80;
+                  			  break;
+					case 0xFF:
+					  //stop
+					  msp_data[1] = (126);
+					  msp_data[1] |= 0x80;						// Set PWM_DIR bit
+					  msp_data[2] = (126); 			
+					  msp_data[2] |= 0x80;						// Set PWM_DIR bit
+					  break;
+	  			 	}
+	  			 	msp_data[3] = ~(msp_data[1] + msp_data[2] + 0x7F); // MSP checksum
+	  			 	
+	  			 	// write data to MSP
+	  			 	int res;
+	  			 	res = write(fw, msp_data, sizeof(msp_data));
+					received = type;
+					cout << "received: " << received << endl;
+					 
+					 // Sleep for a bit
+					  usleep(100000);
+					 // Stop (for RPI to catch up)
+					 msp_data[1] = (126);
+					 msp_data[1] |= 0x80;						// Set PWM_DIR bit
+					 msp_data[2] = (126); 			
+					 msp_data[2] |= 0x80;						// Set PWM_DIR bit
+					 msp_data[3] = ~(msp_data[1] + msp_data[2] + 0x7F); // MSP checksum
+					 res = write(fw, msp_data, sizeof(msp_data));
+                                         
+				 }
+	  		}
+	  		
+	  		/*
+	  		printf("%s", buf);
+	 		unsigned char out[2] = {buf[0], '\r'};
+	 		int writ = write(fw,out,sizeof(out)-1);
+	 		cout << "Data sent: " << out[0] << " : "<< writ << " bytes" << endl;
+	 		*/
+	 		wait_flag = TRUE;
+		}
+    }
+
+  tcsetattr(fd, TCSANOW, &oldtio);
+  tcsetattr(fw, TCSANOW, &oldtio_w);
+  close(fd);
+  close(fw);
+  return 0;
+}
+
+void signal_handler_IO (int status)
+{
+  //std::cout << "recieved SIGIO Signal" << std::endl;
+  wait_flag=FALSE;
+}
