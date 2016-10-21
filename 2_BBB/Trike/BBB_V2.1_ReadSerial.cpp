@@ -28,8 +28,8 @@ volatile uint8_t msg_len;
 volatile uint8_t checksum;
 volatile uint8_t type;
 
-int pwm_write = 20;
-int turn = 15;
+int pwm_write = 30;
+int turn = 20;
 int sharpturn = 20;
 
 int main(void)
@@ -38,6 +38,7 @@ int main(void)
   struct termios oldtio, oldtio_w, newtio;
   struct sigaction saio;
   unsigned char buf[255];
+  int received;
 
   //open modem device
   fd = open(DEVICE, O_RDWR | O_NOCTTY | O_NDELAY );
@@ -126,10 +127,10 @@ int main(void)
 					  msp_data[2] |= 0x80;						// Clear PWM_DIR bit
 	  			          break;
 					case 0x05:
- 					  // sharp turn left
-					  msp_data[1] = (126 -0);// sharpturn);
-					  msp_data[1] &= ~0x80;    // right wheel backwards
-					  msp_data[2] = (126 - sharpturn);
+ 					  //  FAST FOWARD
+					  msp_data[1] = (126 - (pwm_write + 30));// sharpturn);
+					  msp_data[1] |= 0x80;    // right wheel backwards
+					  msp_data[2] = (126 - (pwm_write + 30));
 					  msp_data[2] |= 0x80;
 					  break;
 					case 0x08:
@@ -145,6 +146,7 @@ int main(void)
 					  msp_data[1] |= 0x80;
 					  msp_data[2] = (126 -0);// sharpturn);
 					  msp_data[2] &= ~0x80;
+                  			  break;
 					case 0xFF:
 					  //stop
 					  msp_data[1] = (126);
@@ -158,10 +160,11 @@ int main(void)
 	  			 	// write data to MSP
 	  			 	int res;
 	  			 	res = write(fw, msp_data, sizeof(msp_data));
-					cout << "received: " << type << endl;
+					received = type;
+					cout << "received: " << received << endl;
 					 
 					 // Sleep for a bit
-					 usleep(250000);
+					  usleep(100000);
 					 // Stop (for RPI to catch up)
 					 msp_data[1] = (126);
 					 msp_data[1] |= 0x80;						// Set PWM_DIR bit
@@ -169,6 +172,7 @@ int main(void)
 					 msp_data[2] |= 0x80;						// Set PWM_DIR bit
 					 msp_data[3] = ~(msp_data[1] + msp_data[2] + 0x7F); // MSP checksum
 					 res = write(fw, msp_data, sizeof(msp_data));
+                                         
 				 }
 	  		}
 	  		

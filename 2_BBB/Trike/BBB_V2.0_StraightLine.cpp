@@ -9,7 +9,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <signal.h>
-#include "i2c_function_decs.h"
+
 
 #define ACCEL_ADDRESS 0x6B
 #define MAG_ADDRESS 0x1E
@@ -112,7 +112,7 @@ int main(void) {
 			break;
 	}
     // Checksum byte
-    msp_data[3] = ~(msp_data[1] + msp_data[2]);
+    msp_data[3] = ~(msp_data[1] + msp_data[2]+0x7f);
     
     res = write(msp_fs, msp_data, sizeof(msp_data));			
     /* -------------------------------------------- */
