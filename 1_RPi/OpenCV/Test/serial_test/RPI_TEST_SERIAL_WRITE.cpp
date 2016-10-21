@@ -63,7 +63,7 @@ int main(void)
   	cout << "Data Sent: " << num << " bytes" << endl;
   	i++;
   	if(i>4) i = 0;
-  	usleep(1000000);
+  	sleep(1);
   }
   tcsetattr(fd, TCSANOW, &oldtio);
   close(fd);
